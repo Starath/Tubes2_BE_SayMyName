@@ -17,7 +17,7 @@ import (
 
 type Element struct {
 	Name    string     `json:"name"`    
-	Recipes []string `json:"recipes"` 
+	Recipes [][]string `json:"recipes"` 
 }
 
 func main() {
@@ -70,25 +70,29 @@ func main() {
 				if nameExists && elementName != "" {
 					currentElement := Element{
 						Name:    elementName,
+						Recipes: [][]string{},
 					}
-					recipeCell := row.Find("td:nth-child(2)")
+					recipeCell := row.Find("td:nth-child(2)") 
 					if recipeCell.Length() > 0 {
-						firstLi := recipeCell.Find("li").First()
-						if firstLi.Length() > 0 {
-							recipeParentLinks := firstLi.Find("a[title]")
-							var currentRecipe []string
+						lis := recipeCell.Find("li")
+
+						lis.Each(func(liIndex int, li *goquery.Selection) {
+							recipeParentLinks := li.Find("a[title]")
+
+							var singleRecipePair []string 
 							recipeParentLinks.Each(func(j int, link *goquery.Selection) {
 								parentName, _ := link.Attr("title")
 								parentName = strings.TrimSpace(parentName)
 								if parentName != "" {
-									currentRecipe = append(currentRecipe, parentName)
+									singleRecipePair = append(singleRecipePair, parentName)
 								}
 							})
-							if len(currentRecipe) == 2 {
-								currentElement.Recipes = currentRecipe
+
+							if len(singleRecipePair) == 2 {
+								currentElement.Recipes = append(currentElement.Recipes, singleRecipePair)
 							}
-						}
-					}
+						}) 
+					} 
 					elements = append(elements, currentElement)
 				}
 			}) 
@@ -99,7 +103,7 @@ func main() {
 
 	if len(elements) > 0 {
 		fmt.Println("Memulai proses marshaling data ke JSON...")
-		jsonData, err := json.MarshalIndent(elements, "", "  ") // Indentasi 2 spasi
+		jsonData, err := json.MarshalIndent(elements, "", "  ") 
 		if err != nil {
 			log.Fatalf("FATAL: Error marshaling data ke JSON: %s", err)
 		}
