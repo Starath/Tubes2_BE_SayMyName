@@ -55,10 +55,10 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 		ChildToParents: 		make(map[string][]PairMats),
 		ParentPairToChild: 	make(map[PairMats]string),
 		BaseElements: 			map[string]bool{
-													"Air": true,
-													"Fire": true,
-													"Earth": true,
-													"Water": true,
+													"Air": 		true,
+													"Fire": 	true,
+													"Earth": 	true,
+													"Water": 	true,
 												},
 		AllElements: 				make(map[string]bool),
 	}
