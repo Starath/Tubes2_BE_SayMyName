@@ -1,4 +1,4 @@
-package main
+package tubes2besaymyname
 
 import (
 	"bytes"
