@@ -81,9 +81,9 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 			
 			pair := constructPair(parent1, parent2)
 
-			// Backward direction: Child -> Parents
-			graphData.ParentPairToChild[pair] = element.Name
 			// Forward direction: Parents -> Child
+			graphData.ParentPairToChild[pair] = element.Name
+			// Backward direction: Child -> Parents
 			validRecipesForChild = append(validRecipesForChild, pair)
 		}
 		// Only add to ChildToParents if there are valid recipes (Just in case)
@@ -91,7 +91,7 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 			graphData.ChildToParents[element.Name] = validRecipesForChild
 		}
 	}
-  log.Printf("[INFO] Berhasil memuat data. Total Elemen: %d. Relasi Maju: %d. Elemen dengan Resep (Mundur): %d.\n",
+  log.Printf("[INFO] Data succesfully loaded. Total Elements: %d. Forward Relations: %d. Backward Relations: %d.\n",
     len(graphData.AllElements), len(graphData.ParentPairToChild), len(graphData.ChildToParents))
 
 	return graphData, nil
