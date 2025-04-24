@@ -3,8 +3,11 @@ module github.com/Starath/Tubes2_BE_SayMyName
 go 1.24.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.10.3 // indirect
-	github.com/andybalholm/brotli v1.1.1 // indirect
+	github.com/PuerkitoBio/goquery v1.10.3
+	github.com/andybalholm/brotli v1.1.1
+)
+
+require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	golang.org/x/net v0.39.0 // indirect
 )
