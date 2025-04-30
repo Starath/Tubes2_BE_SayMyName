@@ -1,45 +1,48 @@
 package tubes2besaymyname
 
 import (
-	// "encoding/json" // Keep for potential future use if needed, Gin handles marshaling now
 	"log"
-	"net/http" // Keep for status constants like http.StatusOK
+	"net/http" // Dipertahankan untuk konstanta status HTTP
+	"strconv"  // Diperlukan untuk parsing maxPaths nanti
 	"time"
 
 	"github.com/gin-gonic/gin" // Import Gin
 )
 
 // Global variable to hold the loaded graph data
+// Akan diisi saat server start oleh LoadBiGraph
 var alchemyGraph *BiGraphAlchemy
 
-// Define a structure for the search results (same as before)
+// Definisikan struktur data untuk hasil pencarian
+// TODO (Person 1 & 3): Finalisasi struktur RecipeTree agar sesuai untuk visualisasi frontend
 type SearchResult struct {
-	RecipeTree     interface{} `json:"recipeTree"`
+	RecipeTree     interface{} `json:"recipeTree"` // Tipe sementara, akan diganti struktur tree sebenarnya
 	TimeTakenMs    float64     `json:"timeTakenMs"`
 	NodesVisited   int         `json:"nodesVisited"`
 	Found          bool        `json:"found"`
 	TargetElement  string      `json:"targetElement"`
 	Algorithm      string      `json:"algorithm"`
 	SearchType     string      `json:"searchType"`
+	ErrorMessage   string      `json:"errorMessage,omitempty"` // Untuk menampilkan pesan error ke frontend
 }
 
-// Mock data structure for the recipe tree (same as before)
+// Contoh struktur node tree untuk mock data (bisa disesuaikan)
 type MockRecipeNode struct {
 	Name     string            `json:"name"`
 	Children []*MockRecipeNode `json:"children,omitempty"`
 }
 
-// Simple CORS Middleware for Gin
+// Middleware untuk menangani CORS (Cross-Origin Resource Sharing)
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Allow requests from your Next.js frontend development server
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000") 
+		// TODO (Opsional): Buat origin ini lebih fleksibel atau gunakan env variable untuk production
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent) // Use 204 No Content for OPTIONS preflight
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
@@ -47,134 +50,146 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// searchHandlerGin handles requests to the /search endpoint using Gin context
+// Handler untuk endpoint /search
 func searchHandlerGin(c *gin.Context) {
-	// --- Parameter Parsing using Gin context ---
+	// --- Parsing Parameter Request ---
 	targetElement := c.Query("target")
-	algorithm := c.Query("algorithm") // e.g., "bfs" or "dfs"
-	searchType := c.Query("searchType") // e.g., "shortest" or "multiple"
-	// maxPathsStr := c.Query("maxPaths") // Parse later
+	algorithm := c.Query("algorithm")   // "bfs" atau "dfs"
+	searchType := c.Query("searchType") // "shortest" atau "multiple"
+	maxPathsStr := c.Query("maxPaths")  // String, perlu di-parse ke int jika 'multiple'
 
-	// Basic validation
+	// TODO (Phase 2/3 - Person 2): Tambahkan validasi input yang lebih robust
+	// - Cek apakah elemen target ada di `alchemyGraph.AllElements`?
+	// - Cek apakah algoritma dan searchType valid?
+	// - Pastikan maxPaths adalah integer positif jika searchType="multiple".
 	if targetElement == "" || algorithm == "" || searchType == "" {
 		log.Printf("[WARN] Bad request: Missing parameters. Target=%s, Algo=%s, Type=%s", targetElement, algorithm, searchType)
-		// Return JSON error response using Gin helpers
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters: target, algorithm, searchType"})
 		return
 	}
 
-	log.Printf("[INFO] Received search request: Target=%s, Algorithm=%s, Type=%s\n", targetElement, algorithm, searchType)
+	log.Printf("[INFO] Received search request: Target=%s, Algorithm=%s, Type=%s, MaxPaths=%s\n", targetElement, algorithm, searchType, maxPathsStr)
 
-	// --- Mock Search Logic (Phase 1 - Same as before) ---
-	var mockResult SearchResult
+	// Inisialisasi variabel hasil
+	var result SearchResult
 	startTime := time.Now()
 
+	// --- BAGIAN LOGIKA PENCARIAN SEBENARNYA (PLACEHOLDER FASE 1) ---
+	// TODO (Phase 2 - Person 1): Ganti seluruh blok 'if searchType' ini dengan pemanggilan fungsi BFS/DFS yang sebenarnya.
+	// Fungsi tersebut harus menerima `alchemyGraph`, `targetElement`, `algorithm`, `searchType`, dan `maxPathsInt`.
+	// Fungsi harus mengembalikan struktur data `RecipeTree` yang sesuai, `nodesVisited`, dan status `found`.
+
 	if searchType == "shortest" {
+		// --- START PLACEHOLDER SHORTEST PATH ---
+		log.Println("[INFO] Using MOCK logic for shortest path...")
 		if targetElement == "Mud" {
-			mockResult = SearchResult{
+			result = SearchResult{
 				RecipeTree: &MockRecipeNode{
 					Name: "Mud",
 					Children: []*MockRecipeNode{
-						{Name: "Water"},
-						{Name: "Earth"},
+						{Name: "Water"}, {Name: "Earth"},
 					},
 				},
-				TimeTakenMs:  float64(time.Since(startTime).Microseconds()) / 1000.0,
-				NodesVisited: 5,
-				Found:        true,
-				TargetElement: targetElement,
-				Algorithm:    algorithm,
-				SearchType:   searchType,
+				NodesVisited: 5, Found: true,
 			}
 		} else if targetElement == "Brick" {
-			mockResult = SearchResult{
+			result = SearchResult{
 				RecipeTree: &MockRecipeNode{
 					Name: "Brick",
 					Children: []*MockRecipeNode{
-						{
-							Name: "Mud",
-							Children: []*MockRecipeNode{
-								{Name: "Water"},
-								{Name: "Earth"},
-							},
-						},
+						{Name: "Mud", Children: []*MockRecipeNode{{Name: "Water"}, {Name: "Earth"}}},
 						{Name: "Fire"},
 					},
 				},
-				TimeTakenMs:  float64(time.Since(startTime).Microseconds()) / 1000.0,
-				NodesVisited: 15,
-				Found:        true,
-				TargetElement: targetElement,
-				Algorithm:    algorithm,
-				SearchType:   searchType,
+				NodesVisited: 15, Found: true,
 			}
 		} else {
-			mockResult = SearchResult{
-				RecipeTree:     nil,
-				TimeTakenMs:    float64(time.Since(startTime).Microseconds()) / 1000.0,
-				NodesVisited:   2,
-				Found:          false,
-				TargetElement:  targetElement,
-				Algorithm:      algorithm,
-				SearchType:     searchType,
-			}
+			// Mock: Elemen tidak ditemukan
+			result = SearchResult{RecipeTree: nil, NodesVisited: 2, Found: false, ErrorMessage: "Element not found or mock not implemented"}
 		}
+		// --- END PLACEHOLDER SHORTEST PATH ---
+
 	} else if searchType == "multiple" {
-		// TODO: Implement mock or real logic for multiple paths later
-		mockResult = SearchResult{
-			RecipeTree:     nil, 
-			TimeTakenMs:    float64(time.Since(startTime).Microseconds()) / 1000.0,
-			NodesVisited:   3, 
-			Found:          false, 
-			TargetElement:  targetElement,
-			Algorithm:      algorithm,
-			SearchType:     searchType,
+		// TODO (Phase 2 - Person 2): Parse `maxPathsStr` ke integer (`maxPathsInt`)
+		maxPathsInt, err := strconv.Atoi(maxPathsStr)
+		if err != nil || maxPathsInt <= 0 {
+			log.Printf("[WARN] Invalid maxPaths parameter: %s", maxPathsStr)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid or missing positive integer for maxPaths parameter when searchType is 'multiple'"})
+			return
 		}
+
+		// --- START PLACEHOLDER MULTIPLE PATH ---
+		log.Printf("[INFO] Using MOCK logic for multiple paths (max: %d)...", maxPathsInt)
+		// TODO (Phase 2 - Person 1): Implementasikan pemanggilan fungsi pencarian multiple path di sini.
+		// TODO (Phase 2 - Person 2): Pastikan implementasi ini menggunakan multithreading sesuai spek[cite: 17].
+		// Hasilnya mungkin berupa array dari RecipeTree atau struktur lain. Untuk mock, kita return 'not found'.
+		result = SearchResult{RecipeTree: []interface{}{}, NodesVisited: 3, Found: false, ErrorMessage: "Multiple path search mock not implemented"} // Placeholder array kosong
+		// --- END PLACEHOLDER MULTIPLE PATH ---
+
 	} else {
 		log.Printf("[WARN] Invalid searchType: %s", searchType)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid searchType parameter"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid searchType parameter. Use 'shortest' or 'multiple'"})
 		return
 	}
+	// --- AKHIR BAGIAN LOGIKA PENCARIAN SEBENARNYA ---
 
-	// --- Response using Gin context ---
-	// Gin handles setting Content-Type to application/json
-	// Use c.IndentedJSON for pretty-printed output during development
-	c.IndentedJSON(http.StatusOK, mockResult) 
-	log.Printf("[INFO] Sent response for Target=%s\n", targetElement)
+	// --- Finalisasi Hasil & Pengiriman Respons ---
+	// TODO (Phase 2 - Person 1): Pastikan TimeTakenMs dan NodesVisited diisi dengan nilai aktual dari hasil pencarian.
+	result.TimeTakenMs = float64(time.Since(startTime).Microseconds()) / 1000.0 // Hitung waktu aktual di Phase 2
+	result.TargetElement = targetElement
+	result.Algorithm = algorithm
+	result.SearchType = searchType
+
+	if !result.Found && result.ErrorMessage == "" { // Tambahkan pesan error default jika tidak ditemukan
+		result.ErrorMessage = "Recipe path not found for the given element."
+	}
+
+	// Kirim respons JSON
+	if result.Found {
+		c.IndentedJSON(http.StatusOK, result)
+	} else {
+		// Bisa gunakan status OK tapi dengan flag found=false, atau Not Found (404)
+		// Menggunakan OK agar frontend lebih mudah handle struktur respons yang konsisten
+		c.IndentedJSON(http.StatusOK, result) 
+		// Alternatif: c.IndentedJSON(http.StatusNotFound, result) 
+	}
+	log.Printf("[INFO] Sent response for Target=%s (Found: %t)\n", targetElement, result.Found)
 }
 
-// Main function to start the Gin server
-func StartServer() { // Renamed from main to be callable if needed
-	// Load the graph data when the server starts
+// Fungsi untuk memulai server Gin
+func StartServer() {
+	// Muat data graf saat server dimulai
 	var err error
-	graphPath := "elements.json" // Adjust path if needed
+	graphPath := "elements.json" // Sesuaikan path jika perlu
 	alchemyGraph, err = LoadBiGraph(graphPath)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to load graph data from '%s': %v\n", graphPath, err)
+		log.Fatalf("[FATAL] Gagal memuat data graf dari '%s': %v\n", graphPath, err)
 	}
-	log.Printf("[INFO] Alchemy graph loaded successfully from %s.\n", graphPath)
+	if alchemyGraph == nil {
+		log.Fatalf("[FATAL] alchemyGraph adalah nil setelah LoadBiGraph, cek implementasi LoadBiGraph atau file JSON.")
+	}
+	log.Printf("[INFO] Graf Little Alchemy berhasil dimuat dari %s. (Total Elemen: %d)\n", graphPath, len(alchemyGraph.AllElements))
 
-	// Initialize Gin router with default middleware (logger, recovery)
+	// Inisialisasi Gin router
 	router := gin.Default()
 
-	// Use the CORS middleware
+	// Gunakan middleware CORS
 	router.Use(CORSMiddleware())
 
-	// Register the handler function for the GET /search route
+	// Definisikan route API
 	router.GET("/search", searchHandlerGin)
+	// TODO (Opsional): Tambahkan endpoint lain jika diperlukan (misal: /elements untuk list semua elemen)
 
-	// Define the server port
-	port := ":8080" // Default Gin port is 8080
-	log.Printf("[INFO] Starting Gin server on port %s\n", port)
-
-	// Start the Gin server
+	// Jalankan server
+	port := ":8080"
+	log.Printf("[INFO] Menjalankan server Gin di port %s\n", port)
 	err = router.Run(port)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to start Gin server: %v\n", err)
+		log.Fatalf("[FATAL] Gagal menjalankan server Gin: %v\n", err)
 	}
 }
 
-// If you want this file to be the main executable, add this:
+// Uncomment fungsi main di bawah ini jika Anda ingin file ini menjadi executable utama
 // func main() {
 // 	StartServer()
 // }
