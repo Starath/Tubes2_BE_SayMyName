@@ -1,10 +1,12 @@
-package tubes2besaymyname
+package loadrecipes
 
 import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
+	
+	"github.com/Starath/Tubes2_BE_SayMyName/scrape"
 )
 
 // Contains pair of materials (for recipe)
@@ -22,10 +24,10 @@ func constructPair(mat1, mat2 string) PairMats {
 
 // Bidirectional Graph (Flexible for BFS and DFS)
 type BiGraphAlchemy struct {
-	ChildToParents 			map[string][]PairMats
-	ParentPairToChild		map[PairMats]string
-	BaseElements	  		map[string]bool
-	AllElements					map[string]bool	
+	ChildToParents 		map[string][]PairMats
+	ParentPairToChild	map[PairMats]string
+	BaseElements	  	map[string]bool
+	AllElements			map[string]bool	
 }
 
 
@@ -44,7 +46,7 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 	}
 
 	// Unmarshal the JSON data into a map
-	var elements []Element
+	var elements []scrape.Element
 	err = json.Unmarshal(data, &elements)
 	if err != nil {
 		return nil, err
@@ -52,15 +54,15 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 
 	// Create a new BiGraphAlchemy instance
 	graphData := &BiGraphAlchemy{
-		ChildToParents: 		make(map[string][]PairMats),
+		ChildToParents: 	make(map[string][]PairMats),
 		ParentPairToChild: 	make(map[PairMats]string),
-		BaseElements: 			map[string]bool{
-													"Air": 		true,
-													"Fire": 	true,
-													"Earth": 	true,
-													"Water": 	true,
-												},
-		AllElements: 				make(map[string]bool),
+		BaseElements: 		map[string]bool{
+								"Air": 		true,
+								"Fire": 	true,
+								"Earth": 	true,
+								"Water": 	true,
+							},
+		AllElements: 		make(map[string]bool),
 	}
 
 	// Iterate over the elements and populate the graph data

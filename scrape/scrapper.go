@@ -1,4 +1,4 @@
-package tubes2besaymyname
+package scrape
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type Element struct {
 	Recipes [][]string `json:"recipes"` 
 }
 
-func main() {
+func Scrapping() {
 	url := "https://little-alchemy.fandom.com/wiki/Elements_(Little_Alchemy_2)"
 	fmt.Println("Memulai scraping dari:", url)
 
