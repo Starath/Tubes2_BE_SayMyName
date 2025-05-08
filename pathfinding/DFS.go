@@ -1,13 +1,14 @@
-package main
+package pathfinding
 
 import (
-  "container/list"
-  "fmt"
-  "log"
-  // "sort" // Import sort jika diperlukan untuk mengurutkan path hasil
-  // "sync" // Import sync jika/ketika menerapkan concurrency
+	"container/list"
+	"fmt"
+	"log"
 
-  "github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
+	// "sort" // Import sort jika diperlukan untuk mengurutkan path hasil
+	// "sync" // Import sync jika/ketika menerapkan concurrency
+
+	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 )
 
 type PathStep struct {
@@ -179,44 +180,44 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
 }
 
 // --- Contoh Penggunaan ---
-func main() {
-  // --- (Pastikan fungsi LoadFlexibleRecipes dipanggil sebelum ini) ---
-   recipeData, err := loadrecipes.LoadBiGraph("elements.json")
-   if err != nil {
-     log.Fatalf("FATAL: Gagal memuat data resep: %v", err)
-   }
+// func main() {
+//   // --- (Pastikan fungsi LoadFlexibleRecipes dipanggil sebelum ini) ---
+//    recipeData, err := loadrecipes.LoadBiGraph("elements.json")
+//    if err != nil {
+//      log.Fatalf("FATAL: Gagal memuat data resep: %v", err)
+//    }
 
-   fmt.Println("\n--- DFS SEARCH (Single-Threaded) ---")
-   targetDFS := "Picnic" // Ganti dengan target yg diinginkan
-   resultDFS, errDFS := DFSFindPathString(recipeData, targetDFS)
-   if errDFS != nil {
-     fmt.Printf("Error mencari resep DFS untuk %s: %v\n", targetDFS, errDFS)
-   } else {
-     fmt.Printf("Resep DFS (salah satu jalur) untuk %s (Nodes Explored: %d):\n", targetDFS, resultDFS.NodesVisited)
-     if len(resultDFS.Path) == 0 {
-       fmt.Println("- Elemen dasar.")
-     } else {
-       // Tampilkan path (urutan sudah dibalik)
-       for _, step := range resultDFS.Path {
-         fmt.Printf("  %s = %s + %s\n", step.ChildName, step.Parent1Name, step.Parent2Name)
-       }
-     }
-   }
+//    fmt.Println("\n--- DFS SEARCH (Single-Threaded) ---")
+//    targetDFS := "Picnic" // Ganti dengan target yg diinginkan
+//    resultDFS, errDFS := DFSFindPathString(recipeData, targetDFS)
+//    if errDFS != nil {
+//      fmt.Printf("Error mencari resep DFS untuk %s: %v\n", targetDFS, errDFS)
+//    } else {
+//      fmt.Printf("Resep DFS (salah satu jalur) untuk %s (Nodes Explored: %d):\n", targetDFS, resultDFS.NodesVisited)
+//      if len(resultDFS.Path) == 0 {
+//        fmt.Println("- Elemen dasar.")
+//      } else {
+//        // Tampilkan path (urutan sudah dibalik)
+//        for _, step := range resultDFS.Path {
+//          fmt.Printf("  %s = %s + %s\n", step.ChildName, step.Parent1Name, step.Parent2Name)
+//        }
+//      }
+//    }
 
-   fmt.Println("\n-------------------\n")
+//    fmt.Println("\n-------------------\n")
 
-   targetDFS = "Hedgehog" // Contoh lain
-   resultDFS, errDFS = DFSFindPathString(recipeData, targetDFS)
-   if errDFS != nil {
-     fmt.Printf("Error mencari resep DFS untuk %s: %v\n", targetDFS, errDFS)
-   } else {
-     fmt.Printf("Resep DFS (salah satu jalur) untuk %s (Nodes Explored: %d):\n", targetDFS, resultDFS.NodesVisited)
-     if len(resultDFS.Path) == 0 {
-       fmt.Println("- Elemen dasar.")
-     } else {
-       for _, step := range resultDFS.Path {
-         fmt.Printf("  %s = %s + %s\n", step.ChildName, step.Parent1Name, step.Parent2Name)
-       }
-     }
-   }
-}
+//    targetDFS = "Hedgehog" // Contoh lain
+//    resultDFS, errDFS = DFSFindPathString(recipeData, targetDFS)
+//    if errDFS != nil {
+//      fmt.Printf("Error mencari resep DFS untuk %s: %v\n", targetDFS, errDFS)
+//    } else {
+//      fmt.Printf("Resep DFS (salah satu jalur) untuk %s (Nodes Explored: %d):\n", targetDFS, resultDFS.NodesVisited)
+//      if len(resultDFS.Path) == 0 {
+//        fmt.Println("- Elemen dasar.")
+//      } else {
+//        for _, step := range resultDFS.Path {
+//          fmt.Printf("  %s = %s + %s\n", step.ChildName, step.Parent1Name, step.Parent2Name)
+//        }
+//      }
+//    }
+// }
