@@ -5,22 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	// "sort" // Import sort jika diperlukan untuk mengurutkan path hasil
-	// "sync" // Import sync jika/ketika menerapkan concurrency
-
-	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
+  "github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
+  "github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 )
-
-type PathStep struct {
-  ChildName   string
-  Parent1Name string
-  Parent2Name string
-}
-
-type DFSResult struct {
-  Path         []PathStep 
-  NodesVisited int        
-}
 
 // dfsRecursiveHelperString adalah fungsi rekursif inti untuk DFS mundur (versi string).
 // Mengembalikan true jika path ditemukan, false jika tidak.
@@ -31,7 +18,7 @@ type DFSResult struct {
 func dfsRecursiveHelperString(
   elementName string,
   graph *loadrecipes.BiGraphAlchemy,
-  pathSteps map[string]PathStep, // map[childName]PathStep
+  pathSteps map[string]pathfinding.PathStep, // map[childName]pathfinding.PathStep
   currentlySolving map[string]bool,
   memo map[string]bool,
   visitedCounter *int,
@@ -86,7 +73,7 @@ func dfsRecursiveHelperString(
     // Jika KEDUA parent bisa dibuat
     if canMakeP1 && canMakeP2 {
       // Simpan langkah resep ini (langkah terakhir yg berhasil utk elemen ini)
-      pathSteps[elementName] = PathStep{ChildName: elementName, Parent1Name: pair.Mat1, Parent2Name: pair.Mat2}
+      pathSteps[elementName] = pathfinding.PathStep{ChildName: elementName, Parent1Name: pair.Mat1, Parent2Name: pair.Mat2}
       foundPath = true // Setidaknya satu resep berhasil
       // PENTING: Untuk DFS dasar (cari 1 jalur), kita bisa langsung return true di sini
       // setelah menemukan satu cara. Jika ingin mencari semua jalur atau jalur 'terbaik'
@@ -101,16 +88,16 @@ func dfsRecursiveHelperString(
 }
 
 // DFSFindPathString memulai pencarian DFS mundur (versi string).
-func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*DFSResult, error) {
+func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.DFSResult, error) {
   if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
     return nil, fmt.Errorf(fmt.Sprintf("Elemen target '%s' tidak ditemukan.", targetElementName))
   }
 
   if graph.BaseElements[targetElementName] {
-    return &DFSResult{Path: []PathStep{}, NodesVisited: 1}, nil // Elemen dasar
+    return &pathfinding.DFSResult{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil // Elemen dasar
   }
 
-  pathSteps := make(map[string]PathStep)   // Hanya menyimpan langkah terakhir per elemen
+  pathSteps := make(map[string]pathfinding.PathStep)   // Hanya menyimpan langkah terakhir per elemen
   currentlySolving := make(map[string]bool) // Deteksi siklus per path
   memo := make(map[string]bool)           // Memoization global untuk run ini
   visitedCount := 0                       // Counter node unik yg dieksplorasi
@@ -119,7 +106,7 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
 
   if success {
     // Rekonstruksi path lengkap dari pathSteps
-    finalPath := make([]PathStep, 0, len(pathSteps))
+    finalPath := make([]pathfinding.PathStep, 0, len(pathSteps))
     reconstructionQueue := list.New()
     reconstructionQueue.PushBack(targetElementName)
     addedToFinalPath := make(map[string]bool) // Hindari duplikasi elemen dalam path
@@ -161,7 +148,7 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
         finalPath[i], finalPath[j] = finalPath[j], finalPath[i]
     }
 
-    return &DFSResult{Path: finalPath, NodesVisited: visitedCount}, nil
+    return &pathfinding.DFSResult{Path: finalPath, NodesVisited: visitedCount}, nil
   }
 
   // Jika success == false
