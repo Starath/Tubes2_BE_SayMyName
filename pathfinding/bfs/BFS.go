@@ -1,34 +1,28 @@
-// File: pathfinding/BFS.go
-package pathfinding
+package bfs
 
 import (
 	"container/list"
 	"fmt"
 	"log"
-	// "sort" // Dihapus karena tidak digunakan
 
 	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
+	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 )
 
-// Definisikan PathStep di sini jika belum ada
-// type PathStep struct {
+// Definisikan pathfinding.PathStep di sini jika belum ada
+// type pathfinding.PathStep struct {
 // 	ChildName   string
 // 	Parent1Name string
 // 	Parent2Name string
 // }
 
-type BFSResult struct {
-	Path         []PathStep
-	NodesVisited int
-}
-
 // Helper struct untuk menyimpan step yang membawa ke node (tidak jadi dipakai di versi ini)
 // type predecessorInfo struct {
-// 	step PathStep
+// 	step pathfinding.PathStep
 // }
 
 // Fungsi compare tidak jadi dipakai
-// type byChildName []PathStep
+// type byChildName []pathfinding.PathStep
 // func (a byChildName) Len() int           { return len(a) }
 // func (a byChildName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 // func (a byChildName) Less(i, j int) bool { return a[i].ChildName < a[j].ChildName }
@@ -42,19 +36,19 @@ func constructPairBFS(mat1, mat2 string) loadrecipes.PairMats {
 }
 
 
-func BFSFindShortestPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*BFSResult, error) {
+func BFSFindShortestPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.Result, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, fmt.Errorf("elemen target '%s' tidak ditemukan dalam data", targetElementName)
 	}
 
 	if graph.BaseElements[targetElementName] {
-		return &BFSResult{Path: []PathStep{}, NodesVisited: 1}, nil
+		return &pathfinding.Result{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil
 	}
 
 	// --- Tahap 1: BFS Maju untuk Menemukan Jalur Terpendek & Mencatat Predecessor ---
 	queue := list.New()
 	visited := make(map[string]bool)        // Melacak elemen yang sudah bisa dibuat
-	predecessorSteps := make(map[string]PathStep) // Menyimpan resep terpendek ke elemen
+	predecessorSteps := make(map[string]pathfinding.PathStep) // Menyimpan resep terpendek ke elemen
 	nodesVisitedCount := 0
 	foundTarget := false
 
@@ -96,7 +90,7 @@ func BFSFindShortestPathString(graph *loadrecipes.BiGraphAlchemy, targetElementN
 			if producesChild && !visited[child] { // Jika menghasilkan child BARU
 				visited[child] = true
 				nodesVisitedCount++
-				predecessorSteps[child] = PathStep{
+				predecessorSteps[child] = pathfinding.PathStep{
 					ChildName:   child,
 					Parent1Name: pair.Mat1, // Gunakan field dari pair yang sudah diurut
 					Parent2Name: pair.Mat2,
@@ -138,7 +132,7 @@ func BFSFindShortestPathString(graph *loadrecipes.BiGraphAlchemy, targetElementN
 
 
 	// --- Tahap 2: Rekonstruksi Path dari Target Mundur Menggunakan Predecessor ---
-	finalPathSteps := make([]PathStep, 0)
+	finalPathSteps := make([]pathfinding.PathStep, 0)
 	reconstructionQueue := list.New()
 	processedForPath := make(map[string]bool)
 
@@ -204,5 +198,5 @@ func BFSFindShortestPathString(graph *loadrecipes.BiGraphAlchemy, targetElementN
 
 	// nodesVisitedCount mungkin sedikit lebih tinggi dari jumlah node di path final
 	// karena BFS maju mengeksplorasi semua kemungkinan di setiap level.
-	return &BFSResult{Path: finalPathSteps, NodesVisited: nodesVisitedCount}, nil
+	return &pathfinding.Result{Path: finalPathSteps, NodesVisited: nodesVisitedCount}, nil
 }

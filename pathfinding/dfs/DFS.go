@@ -1,12 +1,12 @@
-package pathfinding
+package dfs
 
 import (
 	"container/list"
 	"fmt"
 	"log"
 
-  "github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
-  "github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
+	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
+	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 )
 
 // dfsRecursiveHelperString adalah fungsi rekursif inti untuk DFS mundur (versi string).
@@ -88,13 +88,13 @@ func dfsRecursiveHelperString(
 }
 
 // DFSFindPathString memulai pencarian DFS mundur (versi string).
-func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.DFSResult, error) {
+func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.Result, error) {
   if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
     return nil, fmt.Errorf(fmt.Sprintf("Elemen target '%s' tidak ditemukan.", targetElementName))
   }
 
   if graph.BaseElements[targetElementName] {
-    return &pathfinding.DFSResult{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil // Elemen dasar
+    return &pathfinding.Result{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil // Elemen dasar
   }
 
   pathSteps := make(map[string]pathfinding.PathStep)   // Hanya menyimpan langkah terakhir per elemen
@@ -148,7 +148,7 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
         finalPath[i], finalPath[j] = finalPath[j], finalPath[i]
     }
 
-    return &pathfinding.DFSResult{Path: finalPath, NodesVisited: visitedCount}, nil
+    return &pathfinding.Result{Path: finalPath, NodesVisited: visitedCount}, nil
   }
 
   // Jika success == false

@@ -1,4 +1,4 @@
-package tubes2besaymyname
+package main
 
 import (
 	"log"
@@ -6,12 +6,13 @@ import (
 	"strconv"  // Diperlukan untuk parsing maxPaths nanti
 	"time"
 
+	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 	"github.com/gin-gonic/gin" // Import Gin
 )
 
 // Global variable to hold the loaded graph data
 // Akan diisi saat server start oleh LoadBiGraph
-var alchemyGraph *BiGraphAlchemy
+var alchemyGraph *loadrecipes.BiGraphAlchemy
 
 // Definisikan struktur data untuk hasil pencarian
 // TODO (Person 1 & 3): Finalisasi struktur RecipeTree agar sesuai untuk visualisasi frontend
@@ -161,7 +162,7 @@ func StartServer() {
 	// Muat data graf saat server dimulai
 	var err error
 	graphPath := "elements.json" // Sesuaikan path jika perlu
-	alchemyGraph, err = LoadBiGraph(graphPath)
+	alchemyGraph, err = loadrecipes.LoadBiGraph(graphPath)
 	if err != nil {
 		log.Fatalf("[FATAL] Gagal memuat data graf dari '%s': %v\n", graphPath, err)
 	}

@@ -10,6 +10,8 @@ import (
 	// Sesuaikan path import ini jika struktur direktori/nama modul Anda berbeda
 	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
+	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/bfs"
+	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/dfs"
 )
 
 // Helper function untuk mencetak hasil path (agar tidak duplikat kode)
@@ -58,7 +60,7 @@ func main() {
 
 		// --- Jalankan DFS ---
 		startDFS := time.Now()
-		resultDFS, errDFS := pathfinding.DFSFindPathString(recipeData, target)
+		resultDFS, errDFS := dfs.DFSFindPathString(recipeData, target)
 		durationDFS := time.Since(startDFS)
 
 		if errDFS != nil {
@@ -75,7 +77,7 @@ func main() {
 
 		// --- Jalankan BFS ---
 		startBFS := time.Now()
-		resultBFS, errBFS := pathfinding.BFSFindShortestPathString(recipeData, target)
+		resultBFS, errBFS := bfs.BFSFindShortestPathString(recipeData, target)
 		durationBFS := time.Since(startBFS)
 
 		if errBFS != nil {

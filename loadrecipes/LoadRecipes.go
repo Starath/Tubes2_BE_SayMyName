@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	
+
 	"github.com/Starath/Tubes2_BE_SayMyName/scrape"
 )
 

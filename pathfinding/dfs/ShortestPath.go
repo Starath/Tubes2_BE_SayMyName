@@ -1,4 +1,4 @@
-package main
+package dfs
 
 import (
 	"container/list"
@@ -9,16 +9,15 @@ import (
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 )
 
-
 // iddfsFindPath implements Iterative Deepening DFS to find the shortest path to a target element
-func iddfsFindPath(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.DFSResult, error) {
+func iddfsFindPath(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.Result, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, fmt.Errorf("target element '%s' not found", targetElementName)
 	}
 
 	// Base element case
 	if graph.BaseElements[targetElementName] {
-		return &pathfinding.DFSResult{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil
+		return &pathfinding.Result{Path: []pathfinding.PathStep{}, NodesVisited: 1}, nil
 	}
 
 	totalNodesVisited := 0
@@ -54,7 +53,7 @@ func iddfsFindPath(graph *loadrecipes.BiGraphAlchemy, targetElementName string) 
 		if found {
 			// Reconstruct path from pathSteps
 			finalPath := reconstructPath(targetElementName, pathSteps, graph)
-			return &pathfinding.DFSResult{Path: finalPath, NodesVisited: totalNodesVisited}, nil
+			return &pathfinding.Result{Path: finalPath, NodesVisited: totalNodesVisited}, nil
 		}
 
 		// If all nodes were explored within this depth but target wasn't found,
