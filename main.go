@@ -12,6 +12,7 @@ import (
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/bfs"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/dfs"
+	"github.com/Starath/Tubes2_BE_SayMyName/scrape"
 )
 
 // Helper function untuk mencetak hasil path (agar tidak duplikat kode)
@@ -34,6 +35,14 @@ func printPathResult(algorithmName string, target string, path []pathfinding.Pat
 }
 
 func main() {
+	// --- 0. Jalankan Scraper untuk Memperbarui Data ---
+	fmt.Println("===== MEMULAI PROSES SCRAPING DATA ELEMEN =====")
+	// Panggil fungsi Scrapping dari package scrape
+	// Pastikan ini tidak menyebabkan circular dependency jika scrape juga mengimpor sesuatu dari main (tidak umum)
+	scrape.Scrapping() // <-- PANGGIL FUNGSI SCRAPPING DI SINI
+	fmt.Println("===== PROSES SCRAPING DATA ELEMEN SELESAI =====")
+
+	
 	// --- 1. Muat Data Resep ---
 	fmt.Println("Memuat data resep dari elements.json...")
 	// Pastikan file 'elements.json' ada di direktori yang sama dengan main.go saat dijalankan,

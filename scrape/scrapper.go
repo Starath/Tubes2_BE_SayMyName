@@ -3,6 +3,7 @@ package scrape
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,13 +20,14 @@ import (
 type Element struct {
 	Name    string     `json:"name"`
 	Recipes [][]string `json:"recipes"`
+	Tier    int        `json:"tier"` // Field Tier ditambahkan
 }
 
 func Scrapping() {
 	url := "https://little-alchemy.fandom.com/wiki/Elements_(Little_Alchemy_2)"
 	fmt.Println("Memulai scraping dari:", url)
 
-	// --- Bagian HTTP Request dan Pembacaan Body (Tetap Sama) ---
+	// --- Bagian HTTP Request dan Pembacaan Body ---
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -51,6 +53,12 @@ func Scrapping() {
 	case "br":
 		brotliReader := brotli.NewReader(res.Body)
 		reader = io.NopCloser(brotliReader)
+	case "gzip": // Tambahkan penanganan gzip jika server mengirimkannya
+		gzipReader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			log.Fatalf("FATAL: Error membuat gzip reader: %s", err)
+		}
+		reader = gzipReader
 	}
 	defer reader.Close()
 	bodyBytes, err := io.ReadAll(reader)
@@ -67,13 +75,17 @@ func Scrapping() {
 	}
 	fmt.Println("Parsing HTML selesai.")
 
-	// --- Tahap 1: Scrape Semua Data Awal ---
-	var rawElements []Element // Slice untuk menampung hasil scraping awal
+	// --- Tahap 1: Scrape Semua Data Awal (Termasuk Tier) ---
+	var rawElements []Element
+	// Definisikan elemen dasar di sini, tier mereka akan diisi dari tabel jika mereka ada di tabel pertama.
+	// Jika tidak, kita bisa set tier mereka secara manual setelah scraping atau sebelum membuat elementTiers map.
+	// Untuk sekarang, kita biarkan tier mereka ditentukan oleh posisi tabel.
 	baseElements := map[string]bool{"Air": true, "Earth": true, "Fire": true, "Water": true}
 
 	fmt.Println("Mencari dan memproses tabel elemen (scrape awal)...")
 	tables := doc.Find("table.list-table")
 	tables.Each(func(tableIndex int, table *goquery.Selection) {
+		currentTier := tableIndex + 1 // Tier dimulai dari 1 (0-indexed + 1)
 		tbodies := table.Find("tbody")
 		tbodies.Each(func(tbodyIndex int, tbody *goquery.Selection) {
 			rows := tbody.Find("tr")
@@ -86,6 +98,7 @@ func Scrapping() {
 					currentElement := Element{
 						Name:    elementName,
 						Recipes: [][]string{},
+						Tier:    currentTier, // Isi field Tier
 					}
 					recipeCell := row.Find("td:nth-child(2)")
 					if recipeCell.Length() > 0 {
@@ -101,133 +114,191 @@ func Scrapping() {
 								}
 							})
 							if len(singleRecipePair) == 2 {
-								// Validasi sederhana, bisa diperketat jika perlu
 								if singleRecipePair[0] != "" && singleRecipePair[1] != "" {
 									currentElement.Recipes = append(currentElement.Recipes, singleRecipePair)
-								} else {
-									log.Printf("[WARN SCRAPE] Resep tidak lengkap untuk %s: %v", elementName, singleRecipePair)
 								}
 							}
 						})
 					}
-					// Cek duplikasi sebelum append (opsional tapi bagus)
-					// Untuk simpelnya, kita biarkan duplikasi dan tangani nanti jika perlu
 					rawElements = append(rawElements, currentElement)
 				}
 			})
 		})
 	})
-	fmt.Printf("Scraping awal selesai. Ditemukan %d entri elemen (mungkin termasuk duplikat).\n", len(rawElements))
+	fmt.Printf("Scraping awal selesai. Ditemukan %d entri elemen.\n", len(rawElements))
 
-	// --- Tahap 2: Identifikasi Elemen Invalid Awal ---
-	invalidElements := make(map[string]bool)
-	log.Println("Filter Tahap 1: Mengidentifikasi elemen invalid awal (tanpa resep, bukan base)...")
-	elementNamesFound := make(map[string]bool) // Untuk cek duplikasi nama
-	uniqueRawElements := []Element{} // Untuk menyimpan elemen unik
+	// --- Tahap 2: Proses Unik dan Buat Map Tier ---
+	// (Menggabungkan Tahap 1 dan sedikit Tahap 2 dari kode Anda)
+	log.Println("Memproses elemen unik dan membuat map tier...")
+	elementNamesFound := make(map[string]bool)
+	uniqueElements := []Element{}
+	elementTiers := make(map[string]int) // Map untuk menyimpan Name -> Tier
+
 	for _, elem := range rawElements {
-		if _, exists := elementNamesFound[elem.Name]; exists {
-			// Jika nama sudah ada, mungkin gabungkan resep atau abaikan duplikat
-			// Untuk simpelnya, kita abaikan duplikat setelah yang pertama
-			continue
+		if _, exists := elementNamesFound[elem.Name]; !exists {
+			elementNamesFound[elem.Name] = true
+			uniqueElements = append(uniqueElements, elem)
+			elementTiers[elem.Name] = elem.Tier // Isi map tier
 		}
-		elementNamesFound[elem.Name] = true
-		uniqueRawElements = append(uniqueRawElements, elem) // Tambahkan elemen unik
+		// Jika ada duplikasi, kita bisa mempertimbangkan untuk menggabungkan resep atau tier (misal ambil tier terendah)
+		// Untuk sekarang, kita ambil yang pertama muncul.
+	}
+	rawElements = uniqueElements // Selanjutnya gunakan uniqueElements
+	log.Printf("Ditemukan %d elemen unik. Map tier dibuat untuk %d elemen.", len(rawElements), len(elementTiers))
 
+	// Penyesuaian Tier untuk elemen dasar JIKA PERLU (jika mereka tidak ada di tabel pertama/tier yang diharapkan)
+	// Contoh: jika ingin memastikan elemen dasar selalu Tier 1
+	// for baseElemName := range baseElements {
+	// 	if tier, ok := elementTiers[baseElemName]; !ok || tier != 1 {
+	// 		log.Printf("Menyesuaikan tier untuk elemen dasar %s menjadi 1", baseElemName)
+	// 		elementTiers[baseElemName] = 1
+	// 		// Update juga di rawElements jika perlu
+	// 		for i, el := range rawElements {
+	// 			if el.Name == baseElemName {
+	// 				rawElements[i].Tier = 1
+	// 				break
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+
+	// --- Tahap 3: Filter Elemen Invalid Awal (Berdasarkan resep kosong & bukan base) ---
+	// (Menggunakan logika dari Tahap 1 di kode Anda)
+	invalidElements := make(map[string]bool)
+	log.Println("Filter Awal: Mengidentifikasi elemen invalid (tanpa resep, bukan base)...")
+	for _, elem := range rawElements {
 		if len(elem.Recipes) == 0 && !baseElements[elem.Name] {
 			invalidElements[elem.Name] = true
-			log.Printf("[FILTER] Menandai elemen invalid awal: %s", elem.Name)
+			// log.Printf("[FILTER AWAL] Menandai elemen invalid: %s (Tier %d)", elem.Name, elem.Tier)
 		}
 	}
-	rawElements = uniqueRawElements // Gunakan elemen unik untuk proses selanjutnya
-	log.Printf("Filter Tahap 1: Ditemukan %d elemen unik. Ditemukan %d elemen invalid awal.", len(rawElements), len(invalidElements))
+	log.Printf("Filter Awal: %d elemen ditandai sebagai invalid awal.", len(invalidElements))
 
 
-	// --- Tahap 3: Filter Elemen Invalid Awal & Resepnya ---
-	intermediateElements := make([]Element, 0)
-	log.Println("Filter Tahap 2: Menghapus elemen invalid awal & resep yang menggunakannya...")
-	recipesRemovedCount := 0
+	// --- Tahap 4: Filter Resep Berdasarkan Keberadaan Parent & Tier ---
+	// (Menggabungkan Tahap 2 dan penambahan filter tier)
+	log.Println("Filter Resep: Menghapus resep dengan parent invalid & validasi tier...")
+	intermediateElements := []Element{}
+	recipesRemovedDueToInvalidParent := 0
+	recipesRemovedDueToTier := 0
+
 	for _, elem := range rawElements {
-		// Lewati elemen yang memang invalid dari awal
-		if invalidElements[elem.Name] {
+		if invalidElements[elem.Name] { // Lewati elemen yang sudah ditandai invalid
 			continue
 		}
 
-		// Filter resep untuk elemen yang tersisa
-		validRecipes := make([][]string, 0)
+		elemTier, childTierExists := elementTiers[elem.Name]
+		if !childTierExists {
+			log.Printf("[WARN TIER] Tier untuk elemen anak '%s' tidak ditemukan saat filter resep. Melewati.", elem.Name)
+			continue
+		}
+
+		validRecipes := [][]string{}
 		for _, recipe := range elem.Recipes {
-			// Asumsi resep selalu punya 2 parent setelah scrape awal
-			if len(recipe) != 2 { continue } // Safety check
+			if len(recipe) != 2 { continue }
 			parent1 := recipe[0]
 			parent2 := recipe[1]
-			// Resep valid jika KEDUA parent TIDAK ADA di daftar invalid
-			if !invalidElements[parent1] && !invalidElements[parent2] {
+
+			// Cek apakah parent invalid (dari filter awal)
+			if invalidElements[parent1] || invalidElements[parent2] {
+				recipesRemovedDueToInvalidParent++
+				continue // Jangan tambahkan resep ini
+			}
+
+			// Cek tier parent
+			parent1Tier, p1TierExists := elementTiers[parent1]
+			parent2Tier, p2TierExists := elementTiers[parent2]
+
+			if !p1TierExists || !p2TierExists {
+				recipesRemovedDueToInvalidParent++ // Atau hitung sbg error tier berbeda
+				// log.Printf("[WARN TIER] Tier untuk parent '%s' atau '%s' tidak ditemukan untuk resep elemen '%s'.", parent1, parent2, elem.Name)
+				continue // Lewati resep jika tier parent tidak ditemukan
+			}
+
+			// Syarat TIER BARU: tier kedua parent harus LEBIH RENDAH dari tier elemen anak
+			if parent1Tier < elemTier && parent2Tier < elemTier {
 				validRecipes = append(validRecipes, recipe)
 			} else {
-				recipesRemovedCount++
-				// log.Printf("[FILTER] Resep dihapus dari %s: %v (karena %s atau %s invalid)", elem.Name, recipe, parent1, parent2)
+				recipesRemovedDueToTier++
+				// log.Printf("[FILTER TIER] Resep dihapus dari %s (Tier %d): %v (Parents: %s [T%d], %s [T%d])",
+				// 	elem.Name, elemTier, recipe, parent1, parent1Tier, parent2, parent2Tier)
 			}
 		}
-		// Tambahkan elemen (yang tidak invalid) dengan resep yang sudah difilter
-		intermediateElements = append(intermediateElements, Element{Name: elem.Name, Recipes: validRecipes})
+		intermediateElements = append(intermediateElements, Element{Name: elem.Name, Recipes: validRecipes, Tier: elemTier})
 	}
-	log.Printf("Filter Tahap 2: %d resep dihapus karena menggunakan elemen invalid. Sisa elemen (sementara): %d.", recipesRemovedCount, len(intermediateElements))
+	log.Printf("Filter Resep: %d resep dihapus (parent invalid), %d resep dihapus (aturan tier). Sisa elemen: %d.",
+		recipesRemovedDueToInvalidParent, recipesRemovedDueToTier, len(intermediateElements))
 
 
-	// --- Tahap 4: Filter Elemen yang Kehabisan Resep ---
-	finalFilteredElements := make([]Element, 0)
-	log.Println("Filter Tahap 3: Menghapus elemen (non-base) yang menjadi tanpa resep...")
-	elementsRemovedCountStage3 := 0
-	finalElementNames := make(map[string]bool) // Set nama elemen final
+	// --- Tahap 5: Filter Elemen yang Kehabisan Resep Setelah Filter Resep ---
+	// (Menggunakan logika dari Tahap 3 di kode Anda)
+	finalElementsStage1 := []Element{}
+	log.Println("Filter Elemen (Pasca-Resep): Menghapus elemen (non-base) yang menjadi tanpa resep...")
+	elementsRemovedNoRecipe := 0
+	finalElementNames := make(map[string]bool) // Set nama elemen yang lolos tahap ini
+
 	for _, elem := range intermediateElements {
-		// Simpan elemen dasar ATAU elemen yang masih punya resep setelah filter tahap 2
 		if baseElements[elem.Name] || len(elem.Recipes) > 0 {
-			finalFilteredElements = append(finalFilteredElements, elem)
-			finalElementNames[elem.Name] = true // Catat nama elemen yang lolos
+			finalElementsStage1 = append(finalElementsStage1, elem)
+			finalElementNames[elem.Name] = true
 		} else {
-			elementsRemovedCountStage3++
-			log.Printf("[FILTER] Menghapus elemen karena kehabisan resep: %s", elem.Name)
+			elementsRemovedNoRecipe++
+			// log.Printf("[FILTER ELEMEN] Menghapus elemen %s (Tier %d) karena kehabisan resep.", elem.Name, elem.Tier)
 		}
 	}
-	log.Printf("Filter Tahap 3: %d elemen tambahan dihapus. Elemen final: %d.", elementsRemovedCountStage3, len(finalFilteredElements))
+	log.Printf("Filter Elemen (Pasca-Resep): %d elemen dihapus. Elemen sementara: %d.", elementsRemovedNoRecipe, len(finalElementsStage1))
 
-	// --- Tahap 5 (Opsional tapi Direkomendasikan): Verifikasi Resep Final ---
-	// Pastikan semua parent dalam resep final ada di daftar elemen final
-	log.Println("Filter Tahap 4: Verifikasi final resep (memastikan semua parent ada di hasil akhir)...")
-	verifiedFinalElements := make([]Element, 0, len(finalFilteredElements))
-	recipesRemovedCountStage4 := 0
-	for _, elem := range finalFilteredElements {
-			verifiedRecipes := make([][]string, 0, len(elem.Recipes))
-			for _, recipe := range elem.Recipes {
-					parent1Exists := finalElementNames[recipe[0]]
-					parent2Exists := finalElementNames[recipe[1]]
-					if parent1Exists && parent2Exists {
-							verifiedRecipes = append(verifiedRecipes, recipe)
-					} else {
-							recipesRemovedCountStage4++
-							log.Printf("[FILTER FINAL] Resep dihapus dari %s: %v (karena parent %s atau %s tidak lolos filter)", elem.Name, recipe, recipe[0], recipe[1])
-					}
-			}
-			// Tambahkan lagi, kali ini dengan resep yang sudah diverifikasi final
-			// Kita juga harus cek lagi apakah elemen jadi kosong resepnya SETELAH verifikasi ini
-			if baseElements[elem.Name] || len(verifiedRecipes) > 0 {
-					verifiedFinalElements = append(verifiedFinalElements, Element{Name: elem.Name, Recipes: verifiedRecipes})
+
+	// --- Tahap 6: Verifikasi Final Resep (Memastikan Semua Parent Ada di Daftar Final) ---
+	// (Menggunakan logika dari Tahap 4 di kode Anda, TAPI filter tier sudah dilakukan sebelumnya)
+	log.Println("Verifikasi Final: Memastikan semua parent dalam resep ada di daftar elemen lolos...")
+	verifiedFinalElements := []Element{}
+	recipesRemovedFinalVerification := 0
+	elementsRemovedFinalVerification := 0
+
+	for _, elem := range finalElementsStage1 {
+		elemTier := elem.Tier // Tier sudah ada di elem
+		verifiedRecipes := [][]string{}
+		for _, recipe := range elem.Recipes {
+			if len(recipe) != 2 { continue }
+			parent1 := recipe[0]
+			parent2 := recipe[1]
+
+			// Cek apakah parent ada di daftar elemen yang sudah lolos tahap sebelumnya
+			_, parent1Exists := finalElementNames[parent1]
+			_, parent2Exists := finalElementNames[parent2]
+
+			if parent1Exists && parent2Exists {
+				// Filter tier sudah dilakukan, jadi di sini kita hanya cek keberadaan
+				verifiedRecipes = append(verifiedRecipes, recipe)
 			} else {
-				 log.Printf("[FILTER FINAL] Menghapus elemen %s karena kehabisan resep SETELAH verifikasi final.", elem.Name)
+				recipesRemovedFinalVerification++
+				// log.Printf("[VERIFIKASI FINAL] Resep dihapus dari %s: %v (parent tidak ada di daftar final)", elem.Name, recipe)
 			}
+		}
+
+		if baseElements[elem.Name] || len(verifiedRecipes) > 0 {
+			verifiedFinalElements = append(verifiedFinalElements, Element{Name: elem.Name, Recipes: verifiedRecipes, Tier: elemTier})
+		} else {
+			elementsRemovedFinalVerification++
+			// log.Printf("[VERIFIKASI FINAL] Menghapus elemen %s (Tier %d) karena kehabisan resep setelah verifikasi.", elem.Name, elem.Tier)
+		}
 	}
-	log.Printf("Filter Tahap 4: %d resep tambahan dihapus saat verifikasi final. Elemen final: %d.", recipesRemovedCountStage4, len(verifiedFinalElements))
+	log.Printf("Verifikasi Final: %d resep dihapus. %d elemen dihapus. Elemen final: %d.",
+		recipesRemovedFinalVerification, elementsRemovedFinalVerification, len(verifiedFinalElements))
+
 
 	// --- Simpan Hasil Akhir ke JSON ---
 	if len(verifiedFinalElements) > 0 {
 		fmt.Println("Memulai proses marshaling data yang sudah difilter ke JSON...")
-		// Gunakan verifiedFinalElements untuk output final
 		jsonData, err := json.MarshalIndent(verifiedFinalElements, "", "  ")
 		if err != nil {
 			log.Fatalf("FATAL: Error marshaling data final ke JSON: %s", err)
 		}
 		fmt.Println("Marshal JSON berhasil.")
 
-		outputFileName := "elements_filtered.json" // Simpan ke nama file berbeda agar tidak menimpa yg asli
+		outputFileName := "elements_filtered_with_tier.json"
 		fmt.Printf("Menulis data JSON yang sudah difilter ke file '%s'...\n", outputFileName)
 
 		err = os.WriteFile(outputFileName, jsonData, 0644)
