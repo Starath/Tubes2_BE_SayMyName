@@ -125,10 +125,10 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 	queue.PushBack(initialState)
 	totalNodesExplored++
 
-	maxIterations := 2000000 
+	//maxIterations := 2000000 
 	currentIterations := 0
 
-	for queue.Len() > 0 && len(collectedPaths) < maxPaths && currentIterations < maxIterations {
+	for queue.Len() > 0 && len(collectedPaths) < maxPaths {
 		currentIterations++
 		stateInterface := queue.Remove(queue.Front())
 		currentState := stateInterface.(BFSMPStateBackward)
@@ -258,9 +258,9 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 		if len(collectedPaths) >= maxPaths { break }
 	}
 
-	if currentIterations >= maxIterations {
-		log.Printf("[BFS-Multi-WARN] Mencapai batas iterasi maksimal (%d) untuk target '%s'. Hasil mungkin tidak lengkap (%d path ditemukan).", maxIterations, targetElementName, len(collectedPaths))
-	}
+	// if currentIterations >= maxIterations {
+	// 	log.Printf("[BFS-Multi-WARN] Mencapai batas iterasi maksimal (%d) untuk target '%s'. Hasil mungkin tidak lengkap (%d path ditemukan).", maxIterations, targetElementName, len(collectedPaths))
+	// }
 
 	var finalResults []pathfinding.Result
 	for _, path := range collectedPaths {

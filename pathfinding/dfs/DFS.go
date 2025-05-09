@@ -162,7 +162,6 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
       log.Printf("INFO: Elemen '%s' ditandai tidak dapat dibuat (memo=false).\n", targetElementName)
   }
 
-
   return nil, fmt.Errorf("tidak ditemukan jalur resep untuk elemen '%s' (Nodes Explored: %d)", targetElementName, nodesExploredFinal)
 }
 
