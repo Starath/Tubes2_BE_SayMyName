@@ -7,10 +7,10 @@ type PathStep struct {
 }
 
 type Result struct {
-	Path         []PathStep 
-	NodesVisited int        
+	Path         []PathStep
+	NodesVisited int
 }
 
 type MultipleResult struct {
-	Results	[]Result
+	Results []Result
 }

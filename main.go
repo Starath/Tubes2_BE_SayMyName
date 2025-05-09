@@ -2,6 +2,9 @@
 package main
 
 import (
+	"bufio"
+	"strconv"
+	"os"
 	"fmt"
 	"log"
 	"strings"
@@ -11,19 +14,20 @@ import (
 	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/bfs"
-	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/dfs"
 	"github.com/Starath/Tubes2_BE_SayMyName/scrape"
 )
 
 // Helper function untuk mencetak hasil path (agar tidak duplikat kode)
 func printPathResult(algorithmName string, target string, path []pathfinding.PathStep, nodesVisited int, duration time.Duration) {
 	fmt.Printf("--- Hasil %s untuk: %s ---\n", algorithmName, target)
-	fmt.Printf("Waktu Eksekusi: %s\n", duration) // Tampilkan durasi
-	fmt.Printf("Nodes Explored: %d\n", nodesVisited)
+	fmt.Printf("Waktu Eksekusi: %s\n", duration)
+	fmt.Printf("Nodes Explored (States for BFS-Multi): %d\n", nodesVisited)
 	if len(path) == 0 {
-		// Cek apakah memang elemen dasar atau tidak ada path
-		// (BFS/DFS sudah menangani error jika tidak ditemukan, jadi ini biasanya elemen dasar)
-		fmt.Println("- Elemen dasar atau tidak ada langkah resep.")
+		if graphInstance.BaseElements[target] { // Perlu akses ke graphInstance
+			fmt.Println("- Elemen dasar.")
+		} else {
+			fmt.Println("- Tidak ada langkah resep yang ditemukan atau path kosong.")
+		}
 	} else {
 		fmt.Printf("Jumlah Langkah Resep: %d\n", len(path))
 		fmt.Println("Resep:")
@@ -31,8 +35,10 @@ func printPathResult(algorithmName string, target string, path []pathfinding.Pat
 			fmt.Printf("  %d. %s = %s + %s\n", i+1, step.ChildName, step.Parent1Name, step.Parent2Name)
 		}
 	}
-	fmt.Println(strings.Repeat("-", 30)) // Separator
+	fmt.Println(strings.Repeat("-", 30))
 }
+
+var graphInstance *loadrecipes.BiGraphAlchemy
 
 func main() {
 	// --- 0. Jalankan Scraper untuk Memperbarui Data ---
@@ -42,62 +48,82 @@ func main() {
 	scrape.Scrapping() // <-- PANGGIL FUNGSI SCRAPPING DI SINI
 	fmt.Println("===== PROSES SCRAPING DATA ELEMEN SELESAI =====")
 
+	reader := bufio.NewReader(os.Stdin)
 	
-	// --- 1. Muat Data Resep ---
 	fmt.Println("Memuat data resep dari elements.json...")
-	// Pastikan file 'elements.json' ada di direktori yang sama dengan main.go saat dijalankan,
-	// atau gunakan path absolut/relatif yang benar.
-	recipeData, err := loadrecipes.LoadBiGraph("elements.json")
+	var err error
+	graphInstance, err = loadrecipes.LoadBiGraph("elements.json") // Menggunakan file JSON default
 	if err != nil {
 		log.Fatalf("FATAL: Gagal memuat data resep: %v", err)
 	}
 	fmt.Println("Data resep berhasil dimuat.")
 
-	// --- 2. Tentukan Target Elemen ---
-	targets := []string{
-		"Fireworks",          // Contoh elemen kompleks
-		"Warmth",           // Contoh lain
-		"Wall",        // Contoh dengan jalur berbeda mungkin
-		"Water",           // Contoh elemen dasar
-		"Wind", // Contoh elemen tidak ada
-		"Picnic",
-	}
+	// targets := []string{
+	// 	"Brick",    
+	// 	"Mud",      
+	// 	"Fire",     
+	// 	"Steam",    
+	// 	"Picnic", // Bisa sangat lambat untuk banyak path dengan BFS ini
+	// }
+	// numPathsToFind := 1 
 
-	// --- 3. Jalankan & Bandingkan DFS dan BFS untuk setiap target ---
-	for _, target := range targets {
-		fmt.Printf("\n===== MEMPROSES TARGET: %s =====\n", target)
-
-		// --- Jalankan DFS ---
-		startDFS := time.Now()
-		resultDFS, errDFS := dfs.DFSFindPathString(recipeData, target)
-		durationDFS := time.Since(startDFS)
-
-		if errDFS != nil {
-			fmt.Printf("--- Hasil DFS untuk: %s ---\n", target)
-			fmt.Printf("Waktu Eksekusi: %s\n", durationDFS)
-			fmt.Printf("Error: %v\n", errDFS)
-			fmt.Println(strings.Repeat("-", 30))
-		} else {
-			printPathResult("DFS (Salah Satu Jalur)", target, resultDFS.Path, resultDFS.NodesVisited, durationDFS)
+	for {
+		fmt.Print("\nMasukkan target resep: ")
+		target, _ := reader.ReadString('\n')
+		target = strings.TrimSpace(target)
+		if target == "" {
+			break
 		}
 
-		// Beri sedikit jeda jika perlu (opsional)
-		// time.Sleep(100 * time.Millisecond)
+		fmt.Print("\nMasukkan jumlah jalur yang ingin dicari (default: 1): ")
+		numPathsToFindStr, _ := reader.ReadString('\n')
+		numPathsToFindStr = strings.TrimSpace(numPathsToFindStr)
+		if numPathsToFindStr == "" {
+			numPathsToFindStr = "1"
+		}
+		numPathsToFind, err := strconv.Atoi(numPathsToFindStr)
+		if err != nil {
+			numPathsToFind = 1
+		}
 
-		// --- Jalankan BFS ---
-		startBFS := time.Now()
-		resultBFS, errBFS := bfs.BFSFindShortestPathString(recipeData, target)
-		durationBFS := time.Since(startBFS)
+		fmt.Printf("\n===== MEMPROSES TARGET: %s (Mencari %d Jalur BFS Mundur) =====\n", target, numPathsToFind)
 
-		if errBFS != nil {
-			fmt.Printf("--- Hasil BFS untuk: %s ---\n", target)
-			fmt.Printf("Waktu Eksekusi: %s\n", durationBFS)
-			fmt.Printf("Error: %v\n", errBFS)
+		startBFSPaths := time.Now()
+		resultBFSPaths, errBFSPaths := bfs.BFSFindXDifferentPathsBackward(graphInstance, target, numPathsToFind)
+		durationBFSPaths := time.Since(startBFSPaths)
+
+
+
+		if errBFSPaths != nil {
+			fmt.Printf("--- Hasil BFS Mundur (X Jalur) untuk: %s ---\n", target)
+			fmt.Printf("Waktu Eksekusi: %s\n", durationBFSPaths)
+			fmt.Printf("Error: %v\n", errBFSPaths)
 			fmt.Println(strings.Repeat("-", 30))
 		} else {
-			printPathResult("BFS (Jalur Terpendek)", target, resultBFS.Path, resultBFS.NodesVisited, durationBFS)
-		}
-	}
+			if resultBFSPaths == nil || len(resultBFSPaths.Results) == 0 {
+				fmt.Printf("--- Hasil BFS Mundur (X Jalur) untuk: %s ---\n", target)
+				fmt.Printf("Waktu Eksekusi: %s\n", durationBFSPaths)
+				if graphInstance.BaseElements[target] {
+					fmt.Println("- Elemen dasar (tidak ada path resep).")
+					fmt.Printf("Nodes Explored (States for BFS-Multi): %d\n", 1) 
+				} else {
+					fmt.Println("- Tidak ditemukan path resep.")
+                    nodesExplored := 0
+                    if resultBFSPaths != nil && len(resultBFSPaths.Results) > 0 {
+                        nodesExplored = resultBFSPaths.Results[0].NodesVisited
+                    }
+                     fmt.Printf("Nodes Explored (States for BFS-Multi): %d\n", nodesExplored)
 
+				}
+				fmt.Println(strings.Repeat("-", 30))
+			} else {
+				fmt.Printf("Ditemukan %d jalur berbeda untuk %s (maks %d):\n", len(resultBFSPaths.Results), target, numPathsToFind)
+				for i, res := range resultBFSPaths.Results {
+					printPathResult(fmt.Sprintf("BFS Mundur Jalur %d/%d", i+1, len(resultBFSPaths.Results)), target, res.Path, res.NodesVisited, durationBFSPaths) // Durasi adalah total
+				}
+			}
+		}
+        fmt.Println("\n====================================================\n")
+	}
 	fmt.Println("\n===== Selesai =====")
 }
