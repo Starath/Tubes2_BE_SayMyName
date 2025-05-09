@@ -90,7 +90,7 @@ func dfsRecursiveHelperString(
 // DFSFindPathString memulai pencarian DFS mundur (versi string).
 func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName string) (*pathfinding.Result, error) {
   if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
-    return nil, fmt.Errorf(fmt.Sprintf("Elemen target '%s' tidak ditemukan.", targetElementName))
+    return nil, fmt.Errorf("elemen target '%s' tidak ditemukan", targetElementName)
   }
 
   if graph.BaseElements[targetElementName] {
@@ -163,7 +163,7 @@ func DFSFindPathString(graph *loadrecipes.BiGraphAlchemy, targetElementName stri
   }
 
 
-  return nil, fmt.Errorf(fmt.Sprintf("Tidak ditemukan jalur resep untuk elemen '%s' (Nodes Explored: %d).", targetElementName, nodesExploredFinal))
+  return nil, fmt.Errorf("tidak ditemukan jalur resep untuk elemen '%s' (Nodes Explored: %d)", targetElementName, nodesExploredFinal)
 }
 
 // --- Contoh Penggunaan ---
