@@ -17,56 +17,30 @@ func reversePathStepsBFS(steps []pathfinding.PathStep) {
 	}
 }
 
-// normalizeAndRemoveDuplicateStepsBFS menormalisasi (urutan parent) dan menghapus duplikat step
-func normalizePathSteps(steps []pathfinding.PathStep) []pathfinding.PathStep {
-	if len(steps) == 0 {
-		return steps
-	}
-	
-	normalized := make([]pathfinding.PathStep, len(steps))
-	copy(normalized, steps)
-	for i := range normalized {
-		if normalized[i].Parent1Name > normalized[i].Parent2Name {
-			normalized[i].Parent1Name, normalized[i].Parent2Name = normalized[i].Parent2Name, normalized[i].Parent1Name
-		}
-	}
-	return normalized
-}
-
-
 // createPathSignature membuat string unik untuk sebuah path agar bisa dideteksi duplikasinya.
 // Path yang diberikan HARUS sudah dalam urutan base-ke-target.
 func createPathSignature(steps []pathfinding.PathStep) string {
 	pathCopy := make([]pathfinding.PathStep, len(steps))
 	copy(pathCopy, steps)
 
+	// Normalisasi urutan parent dalam setiap langkah
 	for i := range pathCopy {
 		if pathCopy[i].Parent1Name > pathCopy[i].Parent2Name {
 			pathCopy[i].Parent1Name, pathCopy[i].Parent2Name = pathCopy[i].Parent2Name, pathCopy[i].Parent1Name
 		}
 	}
 
-	// Ini penting agar path {A=B+C, C=D+E} dan {C=D+E, A=B+C} dianggap sama jika merupakan set step yang sama.
+	// Urutkan langkah-langkah dalam path untuk memastikan path dengan set step yang sama
+	// namun urutan berbeda dianggap identik.
 	sort.Slice(pathCopy, func(i, j int) bool {
 		if pathCopy[i].ChildName != pathCopy[j].ChildName {
 			return pathCopy[i].ChildName < pathCopy[j].ChildName
 		}
-		if pathCopy[i].Parent1Name != pathCopy[j].Parent1Name { 
+		if pathCopy[i].Parent1Name != pathCopy[j].Parent1Name {
 			return pathCopy[i].Parent1Name < pathCopy[j].Parent1Name
 		}
 		return pathCopy[i].Parent2Name < pathCopy[j].Parent2Name
 	})
-	// Perbaikan typo di atas:
-	sort.Slice(pathCopy, func(i, j int) bool {
-		if pathCopy[i].ChildName != pathCopy[j].ChildName {
-			return pathCopy[i].ChildName < pathCopy[j].ChildName
-		}
-		if pathCopy[i].Parent1Name != pathCopy[j].Parent1Name { 
-			return pathCopy[i].Parent1Name < pathCopy[j].Parent1Name
-		}
-		return pathCopy[i].Parent2Name < pathCopy[j].Parent2Name
-	})
-
 
 	var signature string
 	for _, step := range pathCopy {
@@ -75,18 +49,12 @@ func createPathSignature(steps []pathfinding.PathStep) string {
 	return signature
 }
 
-
 // State untuk item dalam antrian BFS Multi-Path (Backward)
 type BFSMPStateBackward struct {
-	// ElementsToDeconstruct adalah daftar elemen yang masih perlu diurai untuk path saat ini.
-	// Setiap elemen di sini akan dicari resepnya.
-	ElementsToDeconstruct []string
-	PathTakenSoFar        []pathfinding.PathStep // Langkah-langkah dari target "ke bawah" (Child -> P1, P2)
-	// elementsInCurrentPathTree digunakan untuk deteksi siklus dalam satu jalur pembentukan path.
-	// Kunci: ChildName, Nilai: true jika sudah ada dalam proses pembuatan path saat ini.
+	ElementsToDeconstruct     []string
+	PathTakenSoFar            []pathfinding.PathStep
 	elementsInCurrentPathTree map[string]bool
 }
-
 
 // BFSFindXDifferentPathsBackward mencari X path berbeda dari target ke elemen dasar.
 func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
@@ -99,14 +67,9 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 
 	var collectedPaths [][]pathfinding.PathStep
 	uniquePathSignatures := make(map[string]bool)
-	totalNodesExplored := 0 // Menghitung jumlah state yang diproses dari queue
+	totalNodesExplored := 0
 
 	if graph.BaseElements[targetElementName] {
-		// Path kosong adalah satu-satunya cara membuat elemen dasar
-		// Tidak ada langkah resep, hanya elemen itu sendiri.
-		// Sesuai spesifikasi, visualisasi tree dengan leaf elemen dasar.
-		// Jika target adalah base, tree-nya hanya node target itu sendiri.
-		// Untuk konsistensi, kita bisa representasikan ini sebagai path kosong.
 		collectedPaths = append(collectedPaths, []pathfinding.PathStep{})
 		return &pathfinding.MultipleResult{
 			Results: []pathfinding.Result{
@@ -123,19 +86,18 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 
 	queue := list.New()
 	queue.PushBack(initialState)
-	totalNodesExplored++
 
-	maxIterations := 2000000 
+	maxIterations := 5000000
 	currentIterations := 0
 
 	for queue.Len() > 0 && len(collectedPaths) < maxPaths && currentIterations < maxIterations {
-		currentIterations++
 		stateInterface := queue.Remove(queue.Front())
 		currentState := stateInterface.(BFSMPStateBackward)
+		currentIterations++
+		totalNodesExplored++
 
-		// Cek apakah semua elemen yang perlu didekonstruksi sudah base
 		allCurrentDecomposedToBase := true
-		if len(currentState.ElementsToDeconstruct) == 0 { 
+		if len(currentState.ElementsToDeconstruct) == 0 {
 			allCurrentDecomposedToBase = true
 		} else {
 			for _, elemName := range currentState.ElementsToDeconstruct {
@@ -147,20 +109,21 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 		}
 
 		if allCurrentDecomposedToBase {
-			// Path lengkap ditemukan. currentState.PathTakenSoFar adalah langkah-langkahnya (mundur).
 			pathCandidate := make([]pathfinding.PathStep, len(currentState.PathTakenSoFar))
 			copy(pathCandidate, currentState.PathTakenSoFar)
-			reversePathStepsBFS(pathCandidate) 
+			reversePathStepsBFS(pathCandidate)
 
 			sig := createPathSignature(pathCandidate)
 			if !uniquePathSignatures[sig] {
 				uniquePathSignatures[sig] = true
 				collectedPaths = append(collectedPaths, pathCandidate)
+				if len(collectedPaths) >= maxPaths {
+					break
+				}
 			}
-			continue 
+			continue
 		}
 
-		// Ambil elemen non-base pertama dari ElementsToDeconstruct untuk diproses
 		var elementToProcess string
 		var nextElementToProcessIdx = -1
 		remainingToDeconstructForNextState := []string{}
@@ -173,9 +136,7 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 			}
 		}
 
-		if nextElementToProcessIdx == -1 { // Semua sisa adalah base, seharusnya sudah ditangani 'allCurrentDecomposedToBase'
-			// Ini bisa terjadi jika ElementsToDeconstruct berisi base-base saja.
-			// Kondisi ini sama dengan allCurrentDecomposedToBase, path sudah lengkap.
+		if nextElementToProcessIdx == -1 {
 			pathCandidate := make([]pathfinding.PathStep, len(currentState.PathTakenSoFar))
 			copy(pathCandidate, currentState.PathTakenSoFar)
 			reversePathStepsBFS(pathCandidate)
@@ -183,42 +144,36 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 			if !uniquePathSignatures[sig] {
 				uniquePathSignatures[sig] = true
 				collectedPaths = append(collectedPaths, pathCandidate)
+				if len(collectedPaths) >= maxPaths {
+					break
+				}
 			}
 			continue
 		}
-		
-		// Buat sisa elemen yang akan didekonstruksi di state berikutnya
+
 		for i, elem := range currentState.ElementsToDeconstruct {
 			if i != nextElementToProcessIdx {
 				remainingToDeconstructForNextState = append(remainingToDeconstructForNextState, elem)
 			}
 		}
-
-
-		// Deteksi siklus dalam path tree saat ini
-		if currentState.elementsInCurrentPathTree[elementToProcess] {
-			// log.Printf("[BFS-Multi-WARN] Siklus terdeteksi untuk %s. Abaikan cabang ini.", elementToProcess)
-			continue
-		}
-		
-		// Buat salinan map untuk state berikutnya agar tidak mengganggu state lain
-		newElementsInPathTreeForNext := make(map[string]bool)
+        
+		// Salinan map untuk state anak. Map ini berguna untuk mendeteksi siklus A->B->...->A yang sebenarnya.
+		newElementsInPathTreeForChildren := make(map[string]bool)
 		for k, v := range currentState.elementsInCurrentPathTree {
-			newElementsInPathTreeForNext[k] = v
+			newElementsInPathTreeForChildren[k] = v
 		}
-		newElementsInPathTreeForNext[elementToProcess] = true // Tandai elemen ini sedang diproses di cabang ini
+        
+		newElementsInPathTreeForChildren[elementToProcess] = true // Tambahkan elementToProcess ke tree untuk anak-anaknya
 
 
 		parentPairs, hasRecipes := graph.ChildToParents[elementToProcess]
 		if !hasRecipes {
-			// Elemen non-base tanpa resep, cabang ini buntu
 			continue
 		}
 
-		// Untuk SETIAP resep yang mungkin untuk elementToProcess
 		for _, pair := range parentPairs {
 			if len(collectedPaths) >= maxPaths {
-				break // Sudah cukup path
+				break
 			}
 
 			currentStep := pathfinding.PathStep{
@@ -231,52 +186,44 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 			copy(newPathTaken, currentState.PathTakenSoFar)
 			newPathTaken = append(newPathTaken, currentStep)
 
-			// Gabungkan parent dari resep saat ini dengan sisa elemen yang belum didekonstruksi
 			nextElementsToDeconstruct := make([]string, len(remainingToDeconstructForNextState))
 			copy(nextElementsToDeconstruct, remainingToDeconstructForNextState)
 			
-			// Tambahkan P1 dan P2 ke daftar yang perlu didekonstruksi, jika belum ada dan bukan base
 			tempDeconstructSet := make(map[string]bool)
 			for _, el := range nextElementsToDeconstruct { tempDeconstructSet[el] = true }
 			
-			if !tempDeconstructSet[pair.Mat1] { // Cek agar tidak duplikat dalam list dekonstruksi
+			if !tempDeconstructSet[pair.Mat1] {
 				nextElementsToDeconstruct = append(nextElementsToDeconstruct, pair.Mat1)
 			}
-			if !tempDeconstructSet[pair.Mat2] { // Cek agar tidak duplikat dalam list dekonstruksi
+			if !tempDeconstructSet[pair.Mat2] {
 				nextElementsToDeconstruct = append(nextElementsToDeconstruct, pair.Mat2)
 			}
-
 
 			newState := BFSMPStateBackward{
 				ElementsToDeconstruct:     nextElementsToDeconstruct,
 				PathTakenSoFar:            newPathTaken,
-				elementsInCurrentPathTree: newElementsInPathTreeForNext, // Gunakan map yang sudah di-copy dan diupdate
+				elementsInCurrentPathTree: newElementsInPathTreeForChildren, 
 			}
 			queue.PushBack(newState)
-			totalNodesExplored++
 		}
 		if len(collectedPaths) >= maxPaths { break }
 	}
 
 	if currentIterations >= maxIterations {
-		log.Printf("[BFS-Multi-WARN] Mencapai batas iterasi maksimal (%d) untuk target '%s'. Hasil mungkin tidak lengkap (%d path ditemukan).", maxIterations, targetElementName, len(collectedPaths))
+		log.Printf("[BFS-Multi-WARN] Mencapai batas iterasi maksimal (%d) untuk target '%s'. Hasil mungkin tidak lengkap (%d path ditemukan). Total state diproses: %d", maxIterations, targetElementName, len(collectedPaths), totalNodesExplored)
 	}
 
 	var finalResults []pathfinding.Result
 	for _, path := range collectedPaths {
-		// Path sudah dalam urutan base ke target (setelah reversePathStepsBFS saat ditemukan)
-		// dan sudah unik.
 		finalResults = append(finalResults, pathfinding.Result{
 			Path:         path,
-			NodesVisited: totalNodesExplored, // Ini adalah total state yang diproses, bukan per path
+			NodesVisited: totalNodesExplored, 
 		})
 	}
 	
 	if len(finalResults) == 0 && !graph.BaseElements[targetElementName] {
-         log.Printf("[BFS-Multi-INFO] Tidak ada path yang ditemukan untuk '%s' setelah %d iterasi. Ditemukan %d path mentah.", targetElementName, currentIterations, len(collectedPaths))
-		 // return nil, fmt.Errorf("tidak ada path yang ditemukan untuk %s", targetElementName)
+         log.Printf("[BFS-Multi-INFO] Tidak ada path yang ditemukan untuk '%s' setelah %d iterasi (total state diproses: %d). Ditemukan %d path mentah.", targetElementName, currentIterations, totalNodesExplored, len(collectedPaths))
 	}
-
 
 	return &pathfinding.MultipleResult{Results: finalResults}, nil
 }

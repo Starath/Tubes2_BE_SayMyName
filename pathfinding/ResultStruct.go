@@ -12,5 +12,5 @@ type Result struct {
 }
 
 type MultipleResult struct {
-	Results []Result
+	Results             []Result
 }
