@@ -13,7 +13,8 @@ func SetupRouter() *http.ServeMux {
 	// Register BFS pathfinding endpoint
 	router.HandleFunc("/api/pathfinding/bfs", handlers.BFSPathfindingHandler)
 	// Register DFS pathfinding endpoint
-	router.HandleFunc("/api/pathfinding/dfs", handlers.DFSPathfindingHandler)
+	router.HandleFunc("/api/pathfinding/dfs-single", handlers.DFSPathfindingHandler)
+	router.HandleFunc("/api/pathfinding/dfs-multiple", handlers.DFSMultiplePathfindingHandler)
 	
 	return router
 }

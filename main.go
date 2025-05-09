@@ -1,12 +1,11 @@
-// // File: main.go
 // package main
 
 // import (
 // 	"bufio"
-// 	"strconv"
-// 	"os"
 // 	"fmt"
 // 	"log"
+// 	"os"
+// 	"strconv"
 // 	"strings"
 // 	"time" // Untuk mengukur waktu eksekusi (opsional)
 
@@ -50,9 +49,9 @@
 
 // 	reader := bufio.NewReader(os.Stdin)
 	
-// 	fmt.Println("Memuat data resep dari elements.json...")
+// 	fmt.Println("Memuat data resep dari elements_filtered.json...")
 // 	var err error
-// 	graphInstance, err = loadrecipes.LoadBiGraph("elements.json") // Menggunakan file JSON default
+// 	graphInstance, err = loadrecipes.LoadBiGraph("elements_filtered.json") // Menggunakan file JSON default
 // 	if err != nil {
 // 		log.Fatalf("FATAL: Gagal memuat data resep: %v", err)
 // 	}
