@@ -145,7 +145,7 @@ func reconstructFullPathFromSteps(
 
 // func main() {
 //   // --- (Pastikan fungsi LoadFlexibleRecipes dipanggil sebelum ini) ---
-//    recipeData, err := loadrecipes.LoadBiGraph("elements.json")
+//    recipeData, err := loadrecipes.LoadBiGraph("elements_filtered.json")
 //    if err != nil {
 //      log.Fatalf("FATAL: Gagal memuat data resep: %v", err)
 //    }
