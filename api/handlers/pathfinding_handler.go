@@ -1,10 +1,9 @@
-// project/be/api/handlers/pathfinding_handler.go
 package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
@@ -20,6 +19,7 @@ type BFSRequest struct {
 type BFSResponse struct {
 	Results *pathfinding.MultipleResult `json:"results"`
 	Error   string                      `json:"error,omitempty"`
+	ExecutionTime float64                  `json:"executionTimeMs"`
 }
 
 type DFSRequest struct {
@@ -29,96 +29,90 @@ type DFSRequest struct {
 
 type DFSSingleResponse struct {
 	Results *pathfinding.Result `json:"results"`
+	ExecutionTime float64                  `json:"executionTimeMs"`
 }
 
 type DFSMultipleResponse struct {
 	Results      []pathfinding.Result `json:"results"`
 	NodesVisited int                  `json:"nodesVisited"`
+	ExecutionTime float64                  `json:"executionTimeMs"`
 }
 
-// DFSPathfindingHandler handles the DFS pathfinding API request
+// handling dfs single recipee
 func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
-	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "*") // Sebaiknya ganti dengan domain frontend Anda
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Handle preflight request
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
-	// Ensure method is POST
+	// Method harus POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse request body
 	var req DFSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Create graph
 	graph, err := loadrecipes.LoadBiGraph("elements_filtered.json")
 	if err != nil {
 		respondWithError(w, "Failed to load graph", http.StatusInternalServerError)
 		return
 	}
 
-	// Call DFS function
+	start := time.Now()
 	result, err := dfs.DFSFindPathString(graph, req.TargetElementName)
+	
 	if err != nil {
 		respondWithError(w, "Failed to find paths: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Return response
+	executionTime := time.Since(start).Seconds() * 1000
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(DFSSingleResponse{
 		Results: result,
+		ExecutionTime: float64(executionTime), 
 	})
 }
-
-// DFSMultiplePathfindingHandler handles the DFS pathfinding API request for multiple paths
+// handling dfs multi recipis
 func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Println("DFSMultiplePathfindingHandler called")
-	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "*") // Sebaiknya ganti dengan domain frontend Anda
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Handle preflight request
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	// Ensure method is POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse request body
 	var req DFSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Create graph
 	graph, err := loadrecipes.LoadBiGraph("elements_filtered.json")
 	if err != nil {
 		respondWithError(w, "Failed to load graph", http.StatusInternalServerError)
 		return
 	}
 
+	start := time.Now()
 	result, nodesVisited, err := dfs.DFSFindMultiplePathsString(graph, req.TargetElementName, req.MaxPaths)
+	executionTime := time.Since(start).Seconds() * 1000
 	if err != nil {
 		respondWithError(w, "Failed to find paths: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -128,55 +122,52 @@ func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(DFSMultipleResponse{
 		Results:      result.Results,
 		NodesVisited: nodesVisited,
+		ExecutionTime: float64(executionTime),
 	})
 }
 
-
-// BFSPathfindingHandler handles the BFS pathfinding API request
+// bfs handler
 func BFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
-	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "*") // Sebaiknya ganti dengan domain frontend Anda
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Handle preflight request
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	// Ensure method is POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse request body
 	var req BFSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Create graph
 	graph, err := loadrecipes.LoadBiGraph("elements_filtered.json")
 	if err != nil {
 		respondWithError(w, "Failed to load graph", http.StatusInternalServerError)
 		return
 	}
 
-	// Call BFS function
-	result, err := bfs.BFSFindXDifferentPathsBackward(graph, req.TargetElementName, req.MaxPaths)
+	start := time.Now()
+	result, err := bfs.BFSFindXDifferentPathsBackward_Parallel(graph, req.TargetElementName, req.MaxPaths)
+	executionTime := time.Since(start).Seconds() * 1000
+
 	if err != nil {
 		respondWithError(w, "Failed to find paths: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(BFSResponse{
 		Results: result,
 		Error:   "",
+		ExecutionTime: float64(executionTime),
 	})
 }
 
