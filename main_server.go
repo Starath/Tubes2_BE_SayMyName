@@ -12,7 +12,7 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // Default port jika tidak ada environment variable
+		port = "8080"
 	}
 
 	router := api.SetupRouter()
