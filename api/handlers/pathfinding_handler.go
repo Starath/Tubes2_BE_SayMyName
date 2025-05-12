@@ -155,7 +155,7 @@ func BFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	result, err := bfs.BFSFindXDifferentPathsBackward_Parallel(graph, req.TargetElementName, req.MaxPaths)
+	result, err := bfs.BFSFindXDifferentPathsBackward_ProxyParallel(graph, req.TargetElementName, req.MaxPaths)
 	executionTime := time.Since(start).Seconds() * 1000
 
 	if err != nil {
