@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -40,6 +41,13 @@ type DFSMultipleResponse struct {
 
 // handling dfs single recipee
 func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Menerima request %s ke %s", r.Method, r.URL.Path)
+    for name, headers := range r.Header {
+        for _, h := range headers {
+            log.Printf("Header: %v = %v", name, h)
+        }
+    }
+
 	w.Header().Set("Access-Control-Allow-Origin", "https://tubes2-fe-say-my-name-yvmx-git-main-rafif-farras-projects.vercel.app")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
