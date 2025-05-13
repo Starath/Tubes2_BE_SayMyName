@@ -10,10 +10,11 @@ import (
 	"time" // Untuk mengukur waktu eksekusi
 
 	// Sesuaikan path import ini jika struktur direktori/nama modul Anda berbeda
+	"github.com/Starath/Tubes2_BE_SayMyName/imagedownloader"
 	"github.com/Starath/Tubes2_BE_SayMyName/loadrecipes"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding/bfs"
-	// "github.com/Starath/Tubes2_BE_SayMyName/scrape" // Jika Anda ingin menjalankan scraper setiap kali
+	"github.com/Starath/Tubes2_BE_SayMyName/scrape"
 )
 
 // graphInstance akan menyimpan data graf yang sudah dimuat.
@@ -101,41 +102,49 @@ func printMultipleResult(
 func main() {
 	// --- 0. (Opsional) Jalankan Scraper untuk Memperbarui Data ---
 	// Uncomment jika ingin menjalankan scraper setiap kali.
-	// fmt.Println("===== MEMULAI PROSES SCRAPING DATA ELEMEN =====")
-	// scrape.Scrapping()
-	// fmt.Println("===== PROSES SCRAPING DATA ELEMEN SELESAI =====")
-	// fmt.Println(strings.Repeat("=", 50))
+	fmt.Println("===== MEMULAI PROSES SCRAPING DATA ELEMEN =====")
+	scrape.Scrapping()
+	fmt.Println("===== PROSES SCRAPING DATA ELEMEN SELESAI =====")
+	fmt.Println(strings.Repeat("=", 50))
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Memuat data resep dari elements_filtered.json...")
+	fmt.Println("Memuat data resep dari elements_with_images.json...")
 	var errLoad error
 	// Pastikan graphInstance diinisialisasi.
-	// Jika elements_filtered.json tidak ada, scrape.Scrapping() harus dijalankan dulu atau pastikan file ada.
+	// Jika elements_with_images.json tidak ada, scrape.Scrapping() harus dijalankan dulu atau pastikan file ada.
 	// Untuk development, Anda bisa menganggap file sudah ada.
-	graphPath := "elements_filtered.json" 
-	// Jika Anda memindahkan elements_filtered.json ke folder scrape, pathnya jadi "scrape/elements_filtered.json"
+	graphPath := "elements_with_images.json" 
+	// Jika Anda memindahkan elements_with_images.json ke folder scrape, pathnya jadi "scrape/elements_with_images.json"
 	// Untuk proyek Go, biasanya file data diletakkan di root atau subdirektori khusus data.
-	// Jika berada di dalam direktori `scrape` dan `main.go` ada di root `Tubes2_BE_SayMyName`, pathnya bisa jadi `scrape/elements_filtered.json`
-	// Namun, berdasarkan struktur file yang Anda berikan, elements_filtered.json tampak sejajar dengan main.go setelah proses scrape.
-	// Jika `scrape.Scrapping()` menghasilkan output di `Tubes2_BE_SayMyName/scrape/elements_filtered.json`, maka pathnya harus itu.
-	// Asumsi saat ini: scrape.Scrapping() menghasilkan `elements_filtered.json` di direktori yang sama dengan `main.go` dijalankan
-	// atau `main.go` ada di root dan `elements_filtered.json` juga di root.
-	// Jika scrape menghasilkan `scrape/elements_filtered.json`, gunakan path `scrape/elements_filtered.json`.
-	// Berdasarkan struktur folder Anda, sepertinya `elements_filtered.json` ada di `Tubes2_BE_SayMyName/scrape/elements_filtered.json`.
+	// Jika berada di dalam direktori `scrape` dan `main.go` ada di root `Tubes2_BE_SayMyName`, pathnya bisa jadi `scrape/elements_with_images.json`
+	// Namun, berdasarkan struktur file yang Anda berikan, elements_with_images.json tampak sejajar dengan main.go setelah proses scrape.
+	// Jika `scrape.Scrapping()` menghasilkan output di `Tubes2_BE_SayMyName/scrape/elements_with_images.json`, maka pathnya harus itu.
+	// Asumsi saat ini: scrape.Scrapping() menghasilkan `elements_with_images.json` di direktori yang sama dengan `main.go` dijalankan
+	// atau `main.go` ada di root dan `elements_with_images.json` juga di root.
+	// Jika scrape menghasilkan `scrape/elements_with_images.json`, gunakan path `scrape/elements_with_images.json`.
+	// Berdasarkan struktur folder Anda, sepertinya `elements_with_images.json` ada di `Tubes2_BE_SayMyName/scrape/elements_with_images.json`.
 	// Namun, file `main.go` Anda juga di `Tubes2_BE_SayMyName`.
-	// Mari asumsikan `elements_filtered.json` berada di direktori yang sama dengan executable `main` setelah build,
-	// atau jika menjalankan dengan `go run main.go` dari root project, pathnya adalah `scrape/elements_filtered.json` jika scraper menyimpannya di sana.
-	// Jika scraper menyimpan di root, maka cukup `elements_filtered.json`.
-	// Saya akan menggunakan "elements_filtered.json" dengan asumsi file tersebut dapat diakses dari direktori kerja saat program dijalankan.
+	// Mari asumsikan `elements_with_images.json` berada di direktori yang sama dengan executable `main` setelah build,
+	// atau jika menjalankan dengan `go run main.go` dari root project, pathnya adalah `scrape/elements_with_images.json` jika scraper menyimpannya di sana.
+	// Jika scraper menyimpan di root, maka cukup `elements_with_images.json`.
+	// Saya akan menggunakan "elements_with_images.json" dengan asumsi file tersebut dapat diakses dari direktori kerja saat program dijalankan.
 	// Sesuaikan jika scraper Anda menyimpan file di subdirektori `scrape`.
+
+
+	fmt.Println("\n===== MEMULAI PROSES PENGUNDUHAN GAMBAR ELEMEN =====")
+	imagedownloader.DownloadAllImages(graphPath) // Panggil fungsi pengunduh
+	fmt.Println("===== PROSES PENGUNDUHAN GAMBAR ELEMEN SELESAI =====")
+	fmt.Println(strings.Repeat("=", 50))
+
+
 	graphInstance, errLoad = loadrecipes.LoadBiGraph(graphPath) 
 	if errLoad != nil {
 		log.Printf("WARNING: Gagal memuat data resep dari '%s': %v. Mencoba dari 'scrape/%s'", graphPath, errLoad, graphPath)
 		graphPath = "scrape/" + graphPath // Coba path alternatif jika scraper menyimpan di subfolder scrape
 		graphInstance, errLoad = loadrecipes.LoadBiGraph(graphPath)
 		if errLoad != nil {
-			log.Fatalf("FATAL: Gagal memuat data resep dari kedua path ('%s' dan alternatifnya): %v", "elements_filtered.json", errLoad)
+			log.Fatalf("FATAL: Gagal memuat data resep dari kedua path ('%s' dan alternatifnya): %v", "elements_with_images.json", errLoad)
 		}
 	}
 	fmt.Printf("Data resep berhasil dimuat dari '%s'.\n", graphPath)
