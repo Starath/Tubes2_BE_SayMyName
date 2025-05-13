@@ -94,7 +94,6 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 
 			pair := ConstructPair(parent1, parent2)
 
-			// Pastikan tidak ada duplikasi child untuk pair yang sama.
 			if !ContainsString(graphData.ParentPairToChild[pair], element.Name) {
 				graphData.ParentPairToChild[pair] = append(graphData.ParentPairToChild[pair], element.Name)
 			}
