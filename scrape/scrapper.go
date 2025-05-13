@@ -1,4 +1,3 @@
-// File: scrape/scrapper.go
 package scrape
 
 import (
@@ -21,10 +20,9 @@ type Element struct {
 	Name     string     `json:"name"`
 	Recipes  [][]string `json:"recipes"`
 	Tier     int        `json:"tier"`
-	ImageURL string     `json:"imageUrl,omitempty"` // <-- TAMBAHKAN FIELD IMAGE URL
+	ImageURL string     `json:"imageUrl,omitempty"` 
 }
 
-// ... (fungsi filterRecipesWithValidParents dan filterRecipesByTier tetap sama) ...
 // Helper function untuk memfilter resep berdasarkan keberadaan parent di validElements
 func filterRecipesWithValidParents(recipes [][]string, validElements map[string]bool) [][]string {
 	newRecipes := make([][]string, 0, len(recipes))
@@ -43,7 +41,7 @@ func filterRecipesWithValidParents(recipes [][]string, validElements map[string]
 // Helper function untuk memfilter resep berdasarkan aturan tier
 func filterRecipesByTier(recipes [][]string, childName string, elementTiers map[string]int) [][]string {
 	childTier, ok := elementTiers[childName]
-	if !ok { // Seharusnya tidak terjadi jika map tier lengkap
+	if !ok { 
 		return [][]string{}
 	}
 
@@ -68,7 +66,6 @@ func Scrapping() {
 	url := "https://little-alchemy.fandom.com/wiki/Elements_(Little_Alchemy_2)"
 	fmt.Println("Memulai scraping dari:", url)
 
-	// --- Bagian HTTP Request dan Pembacaan Body (Sama) ---
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", url, nil); if err != nil { log.Fatalf("FATAL: Error request: %s", err) }
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36")
@@ -84,7 +81,6 @@ func Scrapping() {
 	}; defer reader.Close()
 	bodyBytes, err := io.ReadAll(reader); if err != nil { log.Fatalf("FATAL: read body: %s", err) }
 	fmt.Printf("Body response berhasil dibaca (%d bytes).\n", len(bodyBytes))
-	// --- Akhir Bagian HTTP Request ---
 
 	fmt.Println("Memulai parsing HTML dengan goquery...")
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(bodyBytes))
@@ -102,56 +98,44 @@ func Scrapping() {
 		tbodies.Each(func(tbodyIndex int, tbody *goquery.Selection) {
 			rows := tbody.Find("tr")
 			rows.Each(func(rowIndex int, row *goquery.Selection) {
-				// Dapatkan sel pertama (kolom nama dan ikon)
 				td1 := row.Find("td:nth-child(1)")
 
-				// Dapatkan nama elemen
 				elementLink := td1.Find("a[title]").First() // Link yang berisi nama elemen
 				elementName, nameExists := elementLink.Attr("title")
 				elementName = strings.TrimSpace(elementName)
 
 				if nameExists && elementName != "" {
-					// --- EKSTRAKSI URL GAMBAR ---
 					var imageURL string
-					// Cari img di dalam td1, bisa jadi di dalam span icon-hover > a
 					imageTag := td1.Find("span.icon-hover a.image img.mw-file-element").First()
 					if imageTag.Length() > 0 {
-						// Prioritaskan data-src untuk lazy loaded images
 						src, srcExists := imageTag.Attr("data-src")
 						if srcExists && src != "" {
 							imageURL = src
 						} else {
-							// Fallback ke src jika data-src tidak ada
 							src, srcExists = imageTag.Attr("src")
 							if srcExists {
 								imageURL = src
 							}
 						}
-						// Membersihkan URL dari parameter skala (opsional, tergantung kebutuhan)
-						// Contoh: https://.../Vine_2.svg/revision/latest/scale-to-width-down/40?cb=...
-						// menjadi https://.../Vine_2.svg/revision/latest?cb=...
 						if strings.Contains(imageURL, "/scale-to-width-down/") {
 							parts := strings.Split(imageURL, "/scale-to-width-down/")
 							if len(parts) > 0 {
 								baseImageURL := parts[0]
-								// Ambil query string jika ada
 								if strings.Contains(parts[1], "?") {
 									queryParams := parts[1][strings.Index(parts[1], "?"):]
 									imageURL = baseImageURL + queryParams
 								} else {
-									// Jika tidak ada query params setelah bagian skala, cukup ambil base URL
 									imageURL = baseImageURL
 								}
 							}
 						}
 					}
-					// --- AKHIR EKSTRAKSI URL GAMBAR ---
 
 					currentElement := Element{
 						Name:     elementName,
 						Recipes:  [][]string{},
 						Tier:     currentTier,
-						ImageURL: imageURL, // <-- SIMPAN URL GAMBAR
+						ImageURL: imageURL, 
 					}
 
 					recipeCell := row.Find("td:nth-child(2)")
@@ -179,7 +163,6 @@ func Scrapping() {
 	})
 	fmt.Printf("Scraping awal selesai. Ditemukan %d entri elemen.\n", len(initialScrapedElements))
 
-	// --- Tahap 2: Buat Map Elemen Unik dan Map Tier (Sama) ---
 	log.Println("Memproses elemen unik dan membuat map tier...")
 	elementsMap := make(map[string]Element)
 	elementTiers := make(map[string]int)
@@ -207,7 +190,6 @@ func Scrapping() {
 	}
 	log.Printf("Ditemukan %d elemen unik. Map tier dibuat.", len(elementsMap))
 
-	// --- Tahap 3: Filter Resep Berdasarkan Tier (Sama) ---
 	log.Println("Filter Tahap Awal: Menerapkan filter tier (parent < child)...")
 	recipesRemovedByTierFilter := 0
 	for name, elem := range elementsMap {
@@ -218,7 +200,6 @@ func Scrapping() {
 	}
 	log.Printf("%d resep dihapus oleh filter tier awal.", recipesRemovedByTierFilter)
 
-	// --- Tahap 4: Loop Iteratif untuk Filter (Sama) ---
 	log.Println("Memulai loop filter iteratif...")
 	iteration := 0
 	for {
@@ -247,7 +228,6 @@ func Scrapping() {
 	finalFilteredElements := make([]Element, 0, len(elementsMap))
 	for _, elem := range elementsMap { finalFilteredElements = append(finalFilteredElements, elem) }
 
-	// --- Simpan Hasil Akhir ke JSON (Sama) ---
 	if len(finalFilteredElements) > 0 {
 		fmt.Println("Memulai proses marshaling data yang sudah difilter ke JSON...")
 		jsonData, err := json.MarshalIndent(finalFilteredElements, "", "  ")
