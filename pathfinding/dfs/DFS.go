@@ -22,22 +22,21 @@ func dfsRecursiveHelperString(
 	}
 	*visitedCounter++
 
-	// 2. Cek Base Case (Elemen Dasar)
+	// Cek Base Case (Elemen Dasar)
 	if graph.BaseElements[elementName] {
 		memo[elementName] = true
 		return true
 	}
 
 	if currentlySolving[elementName] {
-		// Tidak simpan di memo karena ini hanya siklus di path *saat ini*
+		// Tidak simpan di memo karena sebuah siklus di path sementara
 		return false
 	}
 
 	currentlySolving[elementName] = true
-	// 'defer' akan dijalankan tepat sebelum fungsi return
 	defer delete(currentlySolving, elementName)
 
-	// 5. Cek apakah elemen punya resep (menggunakan map mundur)
+	// Cek apakah elemen punya resep (secara backward)
 	parentPairs, hasRecipes := graph.ChildToParents[elementName]
 	if !hasRecipes {
 		memo[elementName] = false
