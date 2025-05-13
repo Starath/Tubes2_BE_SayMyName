@@ -23,13 +23,11 @@ func reversePathStepsBFS(steps []pathfinding.PathStep) {
 	}
 }
 
-// createPathSignature membuat string unik untuk sebuah path agar bisa dideteksi duplikasinya.
-// Path yang diberikan HARUS sudah dalam urutan base-ke-target.
+// createPathSignature membuat string unik untuk sebuah path agar bisa deteksi duplikasinya. Path yang diberikan sudah dalam urutan base-ke-target.
 func createPathSignature(steps []pathfinding.PathStep) string {
 	pathCopy := make([]pathfinding.PathStep, len(steps))
 	copy(pathCopy, steps)
 
-	// Normalisasi urutan parent dalam setiap langkah
 	for i := range pathCopy {
 		if pathCopy[i].Parent1Name > pathCopy[i].Parent2Name {
 			pathCopy[i].Parent1Name, pathCopy[i].Parent2Name = pathCopy[i].Parent2Name, pathCopy[i].Parent1Name
@@ -236,9 +234,9 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 
 func proxyBFSWorker(
 	originalGraph *loadrecipes.BiGraphAlchemy,
-	targetElementName string, // Target utama yang diminta pengguna
-	assignedInitialRecipe loadrecipes.PairMats, // Resep awal spesifik untuk worker ini
-	maxPathsForWorkerBranch int, // Max path yang diminta untuk cabang ini (biasanya = maxPaths global)
+	targetElementName string, 
+	assignedInitialRecipe loadrecipes.PairMats, 
+	maxPathsForWorkerBranch int, // bisa dibuat maxPathsForWorkerBranch = maxPaths
 	rawPathChannel chan<- []pathfinding.PathStep,
 	wg *sync.WaitGroup,
 	doneSignal <-chan struct{},
@@ -246,10 +244,10 @@ func proxyBFSWorker(
 ) {
 	defer wg.Done()
 
-	// 1. Buat graf yang dimodifikasi HANYA untuk worker ini
+	// Buat graf yang dimodifikasi HANYA untuk worker ini
 	modifiedChildToParents := make(map[string][]loadrecipes.PairMats)
 	for key, value := range originalGraph.ChildToParents {
-		modifiedChildToParents[key] = value // Salin semua referensi slice resep
+		modifiedChildToParents[key] = value 
 	}
 	// Override resep untuk targetElementName di graf yang dimodifikasi
 	modifiedChildToParents[targetElementName] = []loadrecipes.PairMats{assignedInitialRecipe}
@@ -270,27 +268,13 @@ func proxyBFSWorker(
 	default:
 	}
 
-	// Fungsi ini akan mencari hingga `maxPathsForWorkerBranch` jalur untuk `targetElementName`
-	// tetapi karena grafnya dimodifikasi, ia hanya akan melihat satu resep awal untuk target tersebut.
 	result, err := BFSFindXDifferentPathsBackward(workerGraph, targetElementName, maxPathsForWorkerBranch)
 
 	// Akumulasi NodesVisited
-	// BFSFindXDifferentPathsBackward mengembalikan totalNodesExplored di setiap Result.
-	// Kita ambil dari yang pertama jika ada, atau jika tidak ada path, NodesVisited bisa 0.
 	var nodesFromThisCall int
 	if result != nil && len(result.Results) > 0 {
 		nodesFromThisCall = result.Results[0].NodesVisited
 	} else if result != nil && len(result.Results) == 0 && !originalGraph.BaseElements[targetElementName] {
-		// Jika BFSFindXDifferentPathsBackward tidak menemukan path, ia mungkin telah melakukan eksplorasi.
-		// Logikanya sendiri akan mencatat `totalNodesExplored`.
-		// Jika result.Results kosong, kita asumsikan NodesVisited adalah 0 dari sini,
-		// tapi `BFSFindXDifferentPathsBackward` akan log `totalNodesExplored`-nya sendiri jika > 0.
-		// Untuk konsistensi dengan contoh `Darkness` paralel (21 node), kita butuh nilai ini.
-		// Untuk sementara, kita akan mengandalkan nilai dari result.Results[0].
-		// Jika tidak ada, maka diasumsikan 0 untuk penambahan ke global,
-		// namun BFSFindXDifferentPathsBackward yang asli akan menghitungnya.
-		// Kita bisa juga mencoba membaca nilai dari `totalNodesExplored` di `BFSFindXDifferentPathsBackward`
-		// jika kita bisa mengaksesnya atau jika dikembalikan secara berbeda saat error/0 path.
 		// Untuk sekarang, jika `result.Results` kosong, `nodesFromThisCall` akan 0.
 		// Ini mungkin menjadi sumber perbedaan `totalNodesExploredGlobal` dengan sekuensial.
 	}
@@ -298,25 +282,20 @@ func proxyBFSWorker(
 
 
 	if err != nil {
-		// log.Printf("[WORKER-PROXY %s via %s+%s] Error dari BFS sekuensial: %v. Nodes: %d", targetElementName, assignedInitialRecipe.Mat1, assignedInitialRecipe.Mat2, err, nodesFromThisCall)
 		return
 	}
 
 	if result != nil {
-		// log.Printf("[WORKER-PROXY %s via %s+%s] BFS Sekuensial selesai, ditemukan %d path. Nodes dari panggilan ini: %d", targetElementName, assignedInitialRecipe.Mat1, assignedInitialRecipe.Mat2, len(result.Results), nodesFromThisCall)
 		for _, resPath := range result.Results {
 			select {
-			case rawPathChannel <- resPath.Path: // resPath.Path sudah base-to-target
+			case rawPathChannel <- resPath.Path: 
 			case <-doneSignal:
-				// log.Printf("[WORKER-PROXY %s via %s+%s] Berhenti saat mengirim path (doneSignal).", targetElementName, assignedInitialRecipe.Mat1, assignedInitialRecipe.Mat2)
 				return
 			}
 		}
 	}
 }
 
-// BFSFindXDifferentPathsBackward_ProxyParallel adalah orkestrator yang memanggil proxyBFSWorker.
-// GANTI pemanggilan di main.go Anda ke fungsi ini.
 func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, fmt.Errorf("elemen target '%s' tidak ditemukan (ProxyParallel)", targetElementName)
@@ -331,7 +310,6 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 
 	if graph.BaseElements[targetElementName] {
 		log.Printf("[BFS-PROXY-ORCH] Target '%s' adalah elemen dasar.", targetElementName)
-		// BFSFindXDifferentPathsBackward yang asli mengembalikan NodesVisited: 1
 		return &pathfinding.MultipleResult{
 			Results: []pathfinding.Result{{Path: []pathfinding.PathStep{}, NodesVisited: 1}},
 		}, nil
@@ -340,7 +318,6 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 	initialParentPairs, hasInitialRecipes := graph.ChildToParents[targetElementName]
 	if !hasInitialRecipes {
 		log.Printf("[BFS-PROXY-ORCH] Target '%s' tidak memiliki resep awal.", targetElementName)
-		// Sesuai BFS asli, jika tidak ada resep, NodesVisited adalah 1 (untuk pengecekan target)
 		return &pathfinding.MultipleResult{Results: []pathfinding.Result{}}, nil 
 	}
 
@@ -353,7 +330,7 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 	log.Printf("[BFS-PROXY-ORCH] Target: '%s'. Meluncurkan %d worker (Proxy ke BFS Sekuensial). MaxPaths Global: %d", targetElementName, len(initialParentPairs), maxPaths)
 
 	numWorkersLaunched := 0
-	// Setiap worker akan memanggil BFSFindXDifferentPathsBackward, yang akan mencari hingga maxPaths.
+	
 	maxPathsForWorkerExecution := maxPaths 
 
 	for _, initialRecipe := range initialParentPairs {
@@ -366,7 +343,7 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 			graph, 
 			targetElementName,
 			initialRecipe,
-			maxPathsForWorkerExecution, // Worker akan memanggil BFS asli dengan batas ini
+			maxPathsForWorkerExecution, 
 			rawPathChannel,
 			&wg,
 			doneSignal,
@@ -384,7 +361,6 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 		defer collectorWg.Done()
 		wg.Wait() 
 		close(rawPathChannel)
-		// log.Printf("[BFS-PROXY-ORCH] Semua worker untuk '%s' selesai. Menutup rawPathChannel.", targetElementName)
 	}()
 
 	for pathFromWorker := range rawPathChannel {
@@ -420,18 +396,9 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 
 	finalNodesExploredCount := int(atomic.LoadInt64(&totalNodesExploredGlobal))
 	
-	// Penyesuaian NodesExplored agar lebih konsisten:
-	// Jika BFS sekuensial menghasilkan NodesExplored > 0 meskipun 0 path, kita coba tiru itu.
-	// Untuk "Darkness" paralel V3 Anda, hasilnya 21 nodes, 0 path. Sekuensial 60 nodes, 2 path.
-	// `finalNodesExploredCount` seharusnya sudah merupakan akumulasi dari `NodesVisited` yang dikembalikan oleh tiap panggilan BFS sekuensial di worker.
 	if len(collectedPathResults) == 0 && !graph.BaseElements[targetElementName] {
-		// Jika target punya resep tapi 0 path ditemukan oleh paralel,
-		// finalNodesExploredCount adalah jumlah dari eksplorasi tiap worker.
-		// BFS sekuensial asli akan memiliki `totalNodesExplored` dari iterasinya.
-		// Ini seharusnya sudah cukup akurat.
 		if finalNodesExploredCount == 0 && numWorkersLaunched > 0 {
 			// Ini berarti semua worker mengembalikan 0 NodesExplored, yang mungkin terjadi jika semua cabang buntu sangat awal.
-			// Kita bisa setidaknya hitung 1 (untuk pemeriksaan target awal) jika belum.
 			// finalNodesExploredCount = 1 
 		}
 		log.Printf("[BFS-PROXY-ORCH-INFO] Tidak ada jalur unik yang ditemukan untuk '%s'. Total node dieksplorasi (gabungan worker): %d", targetElementName, finalNodesExploredCount)
