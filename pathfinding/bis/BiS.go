@@ -1,4 +1,4 @@
-package bis
+package bds
 
 import (
 	"container/list"
@@ -17,8 +17,8 @@ import (
 // Ini menyimpan nama elemen dan jalur (langkah-langkah resep) untuk mencapainya.
 type BiSQueueItem struct {
 	ElementName string
-	PathSoFar   []pathfinding.PathStep // PathSoFar untuk forward: dari base ke ElementName.
-	                                 // PathSoFar untuk backward: dari Target ke ElementName (langkah dekonstruksi).
+	PathSoFar   []pathfinding.PathStep
+	                                
 }
 
 // BiSSharedData menyimpan data yang dibagikan antar goroutine selama pencarian BiS.
@@ -27,22 +27,22 @@ type BiSSharedData struct {
 	Graph             *loadrecipes.BiGraphAlchemy
 	TargetElement     string
 	MaxRecipes        int
-	TimeoutDuration   time.Duration // Durasi timeout untuk pencarian
+	TimeoutDuration   time.Duration
 
 	// VisitedForward: map dari nama elemen ke jalur terpendek (sebagai slice PathStep) dari elemen dasar.
 	VisitedForward    map[string][]pathfinding.PathStep
 	// VisitedBackward: map dari nama elemen ke jalur dekonstruksi terpendek (sebagai slice PathStep) dari elemen target.
 	VisitedBackward   map[string][]pathfinding.PathStep
 	
-	FoundRecipes      []pathfinding.Result // Daftar hasil resep unik yang ditemukan.
-	RecipeSignatures  map[string]bool      // Digunakan untuk memastikan keunikan resep.
+	FoundRecipes      []pathfinding.Result
+	RecipeSignatures  map[string]bool     
 	
-	Mutex             sync.RWMutex // Melindungi akses ke VisitedForward, VisitedBackward, FoundRecipes, RecipeSignatures.
+	Mutex             sync.RWMutex
 
-	NodesExplored     int64 // Counter atomik untuk jumlah node yang dieksplorasi.
-	FoundRecipesCount int32 // Counter atomik untuk jumlah resep yang ditemukan.
+	NodesExplored     int64
+	FoundRecipesCount int32
 	
-	StopSearch        chan struct{} // Channel untuk memberi sinyal berhenti ke semua goroutine.
+	StopSearch        chan struct{}
 	Wg                sync.WaitGroup
 }
 
@@ -103,7 +103,7 @@ func reconstructRecipe(meetingElement string, pathForward []pathfinding.PathStep
 // processMeetingPoint memproses titik pertemuan, merekonstruksi resep, dan menambahkannya jika unik.
 func processMeetingPoint(shared *BiSSharedData, meetingElement string, currentPathForward []pathfinding.PathStep, pathFromTargetToMeetingBackward []pathfinding.PathStep, nodesVisitedAtThisPoint int64) {
 	if atomic.LoadInt32(&shared.FoundRecipesCount) >= int32(shared.MaxRecipes) {
-		return // Sudah cukup resep ditemukan
+		return
 	}
 
 	// Rekonstruksi resep lengkap
@@ -127,7 +127,7 @@ func processMeetingPoint(shared *BiSSharedData, meetingElement string, currentPa
 			// Untuk saat ini, kita akan gunakan nilai global saat resep ditambahkan.
 			shared.FoundRecipes = append(shared.FoundRecipes, pathfinding.Result{
 				Path:         recipeSteps,
-				NodesVisited: int(atomic.LoadInt64(&shared.NodesExplored)), // Atau nodesVisitedAtThisPoint
+				NodesVisited: int(atomic.LoadInt64(&shared.NodesExplored)),
 			})
 			atomic.AddInt32(&shared.FoundRecipesCount, 1)
 			log.Printf("[BiS-INFO] Recipe %d found for %s via %s. Signature: %s. Steps: %d", atomic.LoadInt32(&shared.FoundRecipesCount), shared.TargetElement, meetingElement, signature, len(recipeSteps))
@@ -135,7 +135,7 @@ func processMeetingPoint(shared *BiSSharedData, meetingElement string, currentPa
 			if atomic.LoadInt32(&shared.FoundRecipesCount) >= int32(shared.MaxRecipes) {
 				// Beri sinyal untuk menghentikan pencarian lain jika sudah mencapai batas
 				select {
-				case <-shared.StopSearch: // Sudah ditutup
+				case <-shared.StopSearch:
 				default:
 					close(shared.StopSearch)
 					log.Printf("[BiS-INFO] Max recipes (%d) reached for %s. Signaling stop.", shared.MaxRecipes, shared.TargetElement)
@@ -150,14 +150,14 @@ func expandForwardWorker(
 	shared *BiSSharedData,
 	itemsToExpand []BiSQueueItem,
 	nextForwardQueueChan chan BiSQueueItem,
-	meetingCheckChan chan string, // Elemen yang baru ditemukan oleh forward untuk dicek di backward visited
+	meetingCheckChan chan string,
 ) {
 	defer shared.Wg.Done()
 
 	for _, item := range itemsToExpand {
 		select {
 		case <-shared.StopSearch:
-			return // Hentikan jika sudah diperintahkan
+			return
 		default:
 		}
 
@@ -199,7 +199,7 @@ func expandForwardWorker(
 				continue
 			}
 			processedCombinations[pair] = true
-			atomic.AddInt64(&shared.NodesExplored, 1) // Anggap setiap percobaan kombinasi sebagai eksplorasi
+			atomic.AddInt64(&shared.NodesExplored, 1)
 
 			children, canCombine := shared.Graph.ParentPairToChild[pair]
 			if canCombine {
@@ -215,7 +215,7 @@ func expandForwardWorker(
 					copy(newPath, currentPath)
 					newPath = append(newPath, newStep)
 
-					shared.Mutex.Lock() // Lock untuk VisitedForward dan pengecekan pertemuan
+					shared.Mutex.Lock()
 					if _, visited := shared.VisitedForward[childName]; !visited || len(newPath) < len(shared.VisitedForward[childName]) {
 						// Update jika path baru lebih pendek atau belum dikunjungi
 						shared.VisitedForward[childName] = newPath
@@ -229,7 +229,7 @@ func expandForwardWorker(
 							// Atau, pastikan processMeetingPoint tidak melakukan lock yang sama secara rekursif.
 							// Untuk sekarang, kita kirim info pertemuan ke channel lain atau proses di sini dengan hati-hati.
 							// Kita akan memproses pertemuan di main loop setelah ekspansi level selesai.
-							meetingCheckChan <- childName // Kirim elemen pertemuan untuk dicek nanti
+							meetingCheckChan <- childName
 						}
 					}
 					shared.Mutex.Unlock()
@@ -244,19 +244,19 @@ func expandBackwardWorker(
 	shared *BiSSharedData,
 	itemsToExpand []BiSQueueItem,
 	nextBackwardQueueChan chan BiSQueueItem,
-	meetingCheckChan chan string, // Elemen (parent) yang baru ditemukan oleh backward untuk dicek di forward visited
+	meetingCheckChan chan string,
 ) {
 	defer shared.Wg.Done()
 
 	for _, item := range itemsToExpand {
 		select {
 		case <-shared.StopSearch:
-			return // Hentikan jika sudah diperintahkan
+			return
 		default:
 		}
 
-		currentElement := item.ElementName // Ini adalah 'child' yang sedang didekonstruksi
-		currentPathDeconstruction := item.PathSoFar // Path dekonstruksi dari Target ke currentElement
+		currentElement := item.ElementName
+		currentPathDeconstruction := item.PathSoFar
 
 		atomic.AddInt64(&shared.NodesExplored, 1)
 
@@ -265,7 +265,7 @@ func expandBackwardWorker(
 			continue
 		}
 
-		for _, pair := range parentPairs { // pair.Mat1 dan pair.Mat2 adalah parent dari currentElement
+		for _, pair := range parentPairs {
 			select {
 			case <-shared.StopSearch:
 				return
@@ -278,7 +278,7 @@ func expandBackwardWorker(
 			// Proses untuk Parent1 (pair.Mat1)
 			newPathToParent1 := make([]pathfinding.PathStep, len(currentPathDeconstruction))
 			copy(newPathToParent1, currentPathDeconstruction)
-			newPathToParent1 = append(newPathToParent1, deconstructionStep) // Path dari Target ke pair.Mat1
+			newPathToParent1 = append(newPathToParent1, deconstructionStep)
 
 			shared.Mutex.Lock()
 			if _, visited := shared.VisitedBackward[pair.Mat1]; !visited || len(newPathToParent1) < len(shared.VisitedBackward[pair.Mat1]) {
@@ -294,7 +294,7 @@ func expandBackwardWorker(
 			// Path dekonstruksi ke Parent2 juga menggunakan deconstructionStep yang sama
 			newPathToParent2 := make([]pathfinding.PathStep, len(currentPathDeconstruction))
 			copy(newPathToParent2, currentPathDeconstruction)
-			newPathToParent2 = append(newPathToParent2, deconstructionStep) // Path dari Target ke pair.Mat2
+			newPathToParent2 = append(newPathToParent2, deconstructionStep)
 
 			shared.Mutex.Lock()
 			if _, visited := shared.VisitedBackward[pair.Mat2]; !visited || len(newPathToParent2) < len(shared.VisitedBackward[pair.Mat2]) {
@@ -360,7 +360,7 @@ func BiSFindMultiplePaths(graph *loadrecipes.BiGraphAlchemy, targetElement strin
 	atomic.AddInt64(&shared.NodesExplored, 1)
 	// Cek pertemuan awal jika target adalah elemen dasar (sudah ditangani di atas)
 	// Jika elemen dasar ada di VisitedForward, dan target adalah elemen dasar, ini adalah pertemuan.
-	if graph.BaseElements[targetElement] { // Sebenarnya ini sudah ditangani di awal fungsi
+	if graph.BaseElements[targetElement] {
 		// processMeetingPoint(shared, targetElement, []pathfinding.PathStep{}, []pathfinding.PathStep{})
 		// Tidak perlu, karena kasus dasar sudah mengembalikan hasil.
 	}
@@ -369,7 +369,7 @@ func BiSFindMultiplePaths(graph *loadrecipes.BiGraphAlchemy, targetElement strin
 	// Timer untuk timeout
 	timeout := time.After(shared.TimeoutDuration)
 	iteration := 0
-	maxIterations := 100 // Batas iterasi untuk mencegah loop tak terbatas pada graf yang sangat besar/kompleks
+	maxIterations := 100
 
 	// Loop utama pencarian lapis demi lapis
 	for qForward.Len() > 0 && qBackward.Len() > 0 && atomic.LoadInt32(&shared.FoundRecipesCount) < int32(maxRecipes) && iteration < maxIterations {
@@ -392,10 +392,10 @@ func BiSFindMultiplePaths(graph *loadrecipes.BiGraphAlchemy, targetElement strin
 			currentForwardItems = append(currentForwardItems, qForward.Remove(qForward.Front()).(BiSQueueItem))
 		}
 		
-		nextForwardQueueChan := make(chan BiSQueueItem, len(shared.Graph.AllElements)) // Buffer besar
-		meetingCheckChanForward := make(chan string, len(shared.Graph.AllElements)) // Buffer untuk elemen pertemuan
+		nextForwardQueueChan := make(chan BiSQueueItem, len(shared.Graph.AllElements))
+		meetingCheckChanForward := make(chan string, len(shared.Graph.AllElements))
 
-		numForwardWorkers := len(currentForwardItems) // Bisa diatur, misal Max(1, Min(numCPU, len/chunkSize))
+		numForwardWorkers := len(currentForwardItems)
 		if numForwardWorkers > 0 {
 			// Idealnya, bagi currentForwardItems menjadi chunk untuk worker, tapi untuk kesederhanaan, satu item per worker jika sedikit
 			// atau batasi jumlah worker. Untuk sekarang, kita buat worker sebanyak item.
