@@ -14,7 +14,6 @@ import (
 	"github.com/Starath/Tubes2_BE_SayMyName/pathfinding"
 )
 
-
 type workerResult struct {
 	path         []pathfinding.PathStep
 	nodesVisited int
@@ -27,10 +26,10 @@ type workerConfig struct {
 	workerID          int
 	maxRecipesGlobal  int
 	randomSeed        int64
-	explorationDepth  int  
+	explorationDepth  int
 }
 
-func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxRecipes int) (*pathfinding.MultipleResult, int, error) {
+func DFSFindMultiplePaths(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxRecipes int) (*pathfinding.MultipleResult, int, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, 0, fmt.Errorf("elemen target '%s' tidak ditemukan dalam data", targetElementName)
 	}
@@ -47,10 +46,10 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 	}
 
 	var wg sync.WaitGroup
-	
+
 	numInitialRecipes := len(initialRecipesForTarget)
 	numWorkers := numInitialRecipes
-	
+
 	if maxRecipes > numInitialRecipes {
 		numAdditionalWorkers := maxRecipes - numInitialRecipes
 		maxAdditionalWorkers := numInitialRecipes * 3
@@ -59,19 +58,19 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 		}
 		numWorkers += numAdditionalWorkers
 	}
-	
+
 	resultsProcessingChan := make(chan workerResult, numWorkers)
-	
+
 	sharedOverallCanBeMadeMemo := make(map[string]bool)
 	var sharedMemoMutex sync.Mutex
-	
+
 	var pathsFoundCounter int32
 	var totalNodesVisitedByWorkers int64
 
 	doneChan := make(chan struct{})
 
 	workerCount := 0
-	
+
 	for _, initialRecipe := range initialRecipesForTarget {
 		if atomic.LoadInt32(&pathsFoundCounter) >= int32(maxRecipes) {
 			break
@@ -79,7 +78,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 
 		wg.Add(1)
 		workerCount++
-		
+
 		go dfsWorkerFindOnePathWithInitialRecipe(
 			graph,
 			targetElementName,
@@ -93,10 +92,10 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 			&sharedMemoMutex,
 			doneChan,
 			0,
-			time.Now().UnixNano() + int64(workerCount),
+			time.Now().UnixNano()+int64(workerCount),
 		)
 	}
-	
+
 	for i := workerCount; i < numWorkers; i++ {
 		if atomic.LoadInt32(&pathsFoundCounter) >= int32(maxRecipes) {
 			break
@@ -104,20 +103,20 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 
 		wg.Add(1)
 		workerCount++
-		
+
 		explorationDepth := 1 + (i % 5)
-		
+
 		var initialRecipe loadrecipes.PairMats
-		if i < len(initialRecipesForTarget)*2 { 
+		if i < len(initialRecipesForTarget)*2 {
 			recipeIndex := i % len(initialRecipesForTarget)
 			initialRecipe = initialRecipesForTarget[recipeIndex]
 		} else {
 			recipeIndex := i % len(initialRecipesForTarget)
 			initialRecipe = initialRecipesForTarget[recipeIndex]
 		}
-		
+
 		randomSeed := time.Now().UnixNano() + int64(i*1000)
-		
+
 		go dfsWorkerFindOnePathWithInitialRecipe(
 			graph,
 			targetElementName,
@@ -141,7 +140,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 	}()
 
 	var collectedUniquePathResults []pathfinding.Result
-	pathSignatures := make(map[string]bool) 
+	pathSignatures := make(map[string]bool)
 	var accumulatedNodesForUniquePaths int
 
 	for workerRes := range resultsProcessingChan {
@@ -152,7 +151,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 
 		if len(workerRes.path) > 0 {
 			pathSignature := generatePathSignature(workerRes.path)
-			
+
 			if !pathSignatures[pathSignature] {
 				pathSignatures[pathSignature] = true
 				collectedUniquePathResults = append(collectedUniquePathResults, pathfinding.Result{
@@ -167,7 +166,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 					default:
 						close(doneChan)
 					}
-					
+
 					go func() {
 						for range resultsProcessingChan {
 						}
@@ -177,7 +176,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 			}
 		}
 	}
-	
+
 	if len(collectedUniquePathResults) == 0 && !graph.BaseElements[targetElementName] {
 		return &pathfinding.MultipleResult{Results: []pathfinding.Result{}}, accumulatedNodesForUniquePaths, fmt.Errorf("tidak ada jalur resep unik yang ditemukan untuk elemen '%s' setelah semua worker selesai", targetElementName)
 	}
@@ -198,16 +197,16 @@ func dfsWorkerFindOnePathWithInitialRecipe(
 	sharedMemoMutex *sync.Mutex,
 	doneChan <-chan struct{},
 	explorationDepth int,
-	randomSeed int64,    
+	randomSeed int64,
 ) {
 	defer wg.Done()
 
 	localRNG := rand.New(rand.NewSource(randomSeed))
-	
+
 	pathStepsForThisWorker := make(map[string]pathfinding.PathStep)
 	currentlySolvingForThisWorker := make(map[string]bool)
 	memoForThisWorkerBranch := make(map[string]bool)
-	
+
 	var nodesVisitedByThisWorker int
 
 	select {
@@ -220,20 +219,20 @@ func dfsWorkerFindOnePathWithInitialRecipe(
 	}
 
 	canMakeP1 := dfsRecursiveHelperForWorkerPathEnhanced(
-		initialRecipeForTargetElement.Mat1, 
-		graph, 
-		pathStepsForThisWorker, 
-		currentlySolvingForThisWorker, 
+		initialRecipeForTargetElement.Mat1,
+		graph,
+		pathStepsForThisWorker,
+		currentlySolvingForThisWorker,
 		memoForThisWorkerBranch,
-		sharedOverallCanBeMadeMemo, 
-		sharedMemoMutex, 
-		&nodesVisitedByThisWorker, 
-		doneChan, 
-		pathsFoundGlobalCounter, 
+		sharedOverallCanBeMadeMemo,
+		sharedMemoMutex,
+		&nodesVisitedByThisWorker,
+		doneChan,
+		pathsFoundGlobalCounter,
 		maxRecipesGlobalLimit,
-		explorationDepth, 
-		localRNG,         
-		0,                
+		explorationDepth,
+		localRNG,
+		0,
 	)
 
 	if !canMakeP1 {
@@ -242,16 +241,16 @@ func dfsWorkerFindOnePathWithInitialRecipe(
 	}
 
 	canMakeP2 := dfsRecursiveHelperForWorkerPathEnhanced(
-		initialRecipeForTargetElement.Mat2, 
-		graph, 
-		pathStepsForThisWorker, 
-		currentlySolvingForThisWorker, 
+		initialRecipeForTargetElement.Mat2,
+		graph,
+		pathStepsForThisWorker,
+		currentlySolvingForThisWorker,
 		memoForThisWorkerBranch,
-		sharedOverallCanBeMadeMemo, 
-		sharedMemoMutex, 
-		&nodesVisitedByThisWorker, 
-		doneChan, 
-		pathsFoundGlobalCounter, 
+		sharedOverallCanBeMadeMemo,
+		sharedMemoMutex,
+		&nodesVisitedByThisWorker,
+		doneChan,
+		pathsFoundGlobalCounter,
 		maxRecipesGlobalLimit,
 		explorationDepth,
 		localRNG,
@@ -268,9 +267,9 @@ func dfsWorkerFindOnePathWithInitialRecipe(
 		Parent1Name: initialRecipeForTargetElement.Mat1,
 		Parent2Name: initialRecipeForTargetElement.Mat2,
 	}
-	
+
 	reconstructedPath := reconstructFullPathFromSteps(pathStepsForThisWorker, targetElementName, graph.BaseElements)
-	
+
 	resultsChan <- workerResult{path: reconstructedPath, nodesVisited: nodesVisitedByThisWorker, err: nil}
 	atomic.AddInt32(pathsFoundGlobalCounter, 1)
 }
@@ -288,8 +287,8 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 	pathsFoundGlobalCounter *int32,
 	maxRecipesGlobalLimit int,
 	explorationDepth int,
-	localRNG *rand.Rand, 
-	currentDepth int,    
+	localRNG *rand.Rand,
+	currentDepth int,
 ) bool {
 	select {
 	case <-doneChan:
@@ -309,7 +308,7 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 		memoForThisWorkerBranch[elementName] = true
 		return true
 	}
-	
+
 	if currentlySolvingThisBranch[elementName] {
 		return false
 	}
@@ -323,7 +322,7 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 		return false
 	}
 	sharedMemoMutex.Unlock()
-	
+
 	(*nodesVisitedCounter)++
 
 	recipesForCurrentElement, hasRecipes := graph.ChildToParents[elementName]
@@ -339,7 +338,7 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 	for i := range shuffledRecipeIndices {
 		shuffledRecipeIndices[i] = i
 	}
-	
+
 	shuffleProbability := float64(explorationDepth) * 0.2
 	if currentDepth <= explorationDepth && localRNG.Float64() < shuffleProbability {
 		for i := len(shuffledRecipeIndices) - 1; i > 0; i-- {
@@ -350,15 +349,15 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 
 	for _, index := range shuffledRecipeIndices {
 		recipePair := recipesForCurrentElement[index]
-		
+
 		parent1, parent2 := recipePair.Mat1, recipePair.Mat2
 		if explorationDepth > 0 && currentDepth <= explorationDepth && localRNG.Float64() < 0.3 {
 			parent1, parent2 = parent2, parent1
 		}
-		
+
 		canMakeP1 := dfsRecursiveHelperForWorkerPathEnhanced(
 			parent1, graph, pathStepsThisBranch, currentlySolvingThisBranch, memoForThisWorkerBranch,
-			sharedOverallCanBeMadeMemo, sharedMemoMutex, nodesVisitedCounter, doneChan, 
+			sharedOverallCanBeMadeMemo, sharedMemoMutex, nodesVisitedCounter, doneChan,
 			pathsFoundGlobalCounter, maxRecipesGlobalLimit, explorationDepth, localRNG, currentDepth+1)
 		if !canMakeP1 {
 			continue
@@ -366,7 +365,7 @@ func dfsRecursiveHelperForWorkerPathEnhanced(
 
 		canMakeP2 := dfsRecursiveHelperForWorkerPathEnhanced(
 			parent2, graph, pathStepsThisBranch, currentlySolvingThisBranch, memoForThisWorkerBranch,
-			sharedOverallCanBeMadeMemo, sharedMemoMutex, nodesVisitedCounter, doneChan, 
+			sharedOverallCanBeMadeMemo, sharedMemoMutex, nodesVisitedCounter, doneChan,
 			pathsFoundGlobalCounter, maxRecipesGlobalLimit, explorationDepth, localRNG, currentDepth+1)
 		if !canMakeP2 {
 			continue
@@ -394,11 +393,15 @@ func generatePathSignature(path []pathfinding.PathStep) string {
 			return pathCopy[i].ChildName < pathCopy[j].ChildName
 		}
 		p1_i, p2_i := pathCopy[i].Parent1Name, pathCopy[i].Parent2Name
-		if p1_i > p2_i {p1_i, p2_i = p2_i, p1_i}
+		if p1_i > p2_i {
+			p1_i, p2_i = p2_i, p1_i
+		}
 
 		p1_j, p2_j := pathCopy[j].Parent1Name, pathCopy[j].Parent2Name
-		if p1_j > p2_j {p1_j, p2_j = p2_j, p1_j}
-		
+		if p1_j > p2_j {
+			p1_j, p2_j = p2_j, p1_j
+		}
+
 		if p1_i != p1_j {
 			return p1_i < p1_j
 		}
@@ -408,7 +411,9 @@ func generatePathSignature(path []pathfinding.PathStep) string {
 	var signatureParts []string
 	for _, step := range pathCopy {
 		parent1, parent2 := step.Parent1Name, step.Parent2Name
-		if parent1 > parent2 {parent1, parent2 = parent2, parent1} 
+		if parent1 > parent2 {
+			parent1, parent2 = parent2, parent1
+		}
 		signatureParts = append(signatureParts, fmt.Sprintf("%s=(%s+%s)", step.ChildName, parent1, parent2))
 	}
 	return strings.Join(signatureParts, ";")

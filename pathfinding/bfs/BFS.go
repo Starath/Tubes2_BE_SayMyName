@@ -60,8 +60,8 @@ type BFSMPStateBackward struct {
 	elementsInCurrentPathTree map[string]bool
 }
 
-// BFSFindXDifferentPathsBackward mencari X path berbeda dari target ke elemen dasar.
-func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
+// BFSFindPath mencari X path berbeda dari target ke elemen dasar.
+func BFSFindPath(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, fmt.Errorf("elemen target '%s' tidak ditemukan dalam data", targetElementName)
 	}
@@ -160,15 +160,14 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 				remainingToDeconstructForNextState = append(remainingToDeconstructForNextState, elem)
 			}
 		}
-        
+
 		// Salinan map untuk state anak. Map ini berguna untuk mendeteksi siklus A->B->...->A yang sebenarnya.
 		newElementsInPathTreeForChildren := make(map[string]bool)
 		for k, v := range currentState.elementsInCurrentPathTree {
 			newElementsInPathTreeForChildren[k] = v
 		}
-        
-		newElementsInPathTreeForChildren[elementToProcess] = true // Tambahkan elementToProcess ke tree untuk anak-anaknya
 
+		newElementsInPathTreeForChildren[elementToProcess] = true // Tambahkan elementToProcess ke tree untuk anak-anaknya
 
 		parentPairs, hasRecipes := graph.ChildToParents[elementToProcess]
 		if !hasRecipes {
@@ -192,10 +191,12 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 
 			nextElementsToDeconstruct := make([]string, len(remainingToDeconstructForNextState))
 			copy(nextElementsToDeconstruct, remainingToDeconstructForNextState)
-			
+
 			tempDeconstructSet := make(map[string]bool)
-			for _, el := range nextElementsToDeconstruct { tempDeconstructSet[el] = true }
-			
+			for _, el := range nextElementsToDeconstruct {
+				tempDeconstructSet[el] = true
+			}
+
 			if !tempDeconstructSet[pair.Mat1] {
 				nextElementsToDeconstruct = append(nextElementsToDeconstruct, pair.Mat1)
 			}
@@ -206,11 +207,13 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 			newState := BFSMPStateBackward{
 				ElementsToDeconstruct:     nextElementsToDeconstruct,
 				PathTakenSoFar:            newPathTaken,
-				elementsInCurrentPathTree: newElementsInPathTreeForChildren, 
+				elementsInCurrentPathTree: newElementsInPathTreeForChildren,
 			}
 			queue.PushBack(newState)
 		}
-		if len(collectedPaths) >= maxPaths { break }
+		if len(collectedPaths) >= maxPaths {
+			break
+		}
 	}
 
 	if currentIterations >= maxIterations {
@@ -221,12 +224,12 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 	for _, path := range collectedPaths {
 		finalResults = append(finalResults, pathfinding.Result{
 			Path:         path,
-			NodesVisited: totalNodesExplored, 
+			NodesVisited: totalNodesExplored,
 		})
 	}
-	
+
 	if len(finalResults) == 0 && !graph.BaseElements[targetElementName] {
-         log.Printf("[BFS-Multi-INFO] Tidak ada path yang ditemukan untuk '%s' setelah %d iterasi (total state diproses: %d). Ditemukan %d path mentah.", targetElementName, currentIterations, totalNodesExplored, len(collectedPaths))
+		log.Printf("[BFS-Multi-INFO] Tidak ada path yang ditemukan untuk '%s' setelah %d iterasi (total state diproses: %d). Ditemukan %d path mentah.", targetElementName, currentIterations, totalNodesExplored, len(collectedPaths))
 	}
 
 	return &pathfinding.MultipleResult{Results: finalResults}, nil
@@ -234,8 +237,8 @@ func BFSFindXDifferentPathsBackward(graph *loadrecipes.BiGraphAlchemy, targetEle
 
 func proxyBFSWorker(
 	originalGraph *loadrecipes.BiGraphAlchemy,
-	targetElementName string, 
-	assignedInitialRecipe loadrecipes.PairMats, 
+	targetElementName string,
+	assignedInitialRecipe loadrecipes.PairMats,
 	maxPathsForWorkerBranch int, // bisa dibuat maxPathsForWorkerBranch = maxPaths
 	rawPathChannel chan<- []pathfinding.PathStep,
 	wg *sync.WaitGroup,
@@ -247,7 +250,7 @@ func proxyBFSWorker(
 	// Buat graf yang dimodifikasi HANYA untuk worker ini
 	modifiedChildToParents := make(map[string][]loadrecipes.PairMats)
 	for key, value := range originalGraph.ChildToParents {
-		modifiedChildToParents[key] = value 
+		modifiedChildToParents[key] = value
 	}
 	// Override resep untuk targetElementName di graf yang dimodifikasi
 	modifiedChildToParents[targetElementName] = []loadrecipes.PairMats{assignedInitialRecipe}
@@ -268,7 +271,7 @@ func proxyBFSWorker(
 	default:
 	}
 
-	result, err := BFSFindXDifferentPathsBackward(workerGraph, targetElementName, maxPathsForWorkerBranch)
+	result, err := BFSFindPath(workerGraph, targetElementName, maxPathsForWorkerBranch)
 
 	// Akumulasi NodesVisited
 	var nodesFromThisCall int
@@ -280,7 +283,6 @@ func proxyBFSWorker(
 	}
 	atomic.AddInt64(nodesExploredCounter, int64(nodesFromThisCall))
 
-
 	if err != nil {
 		return
 	}
@@ -288,7 +290,7 @@ func proxyBFSWorker(
 	if result != nil {
 		for _, resPath := range result.Results {
 			select {
-			case rawPathChannel <- resPath.Path: 
+			case rawPathChannel <- resPath.Path:
 			case <-doneSignal:
 				return
 			}
@@ -296,7 +298,7 @@ func proxyBFSWorker(
 	}
 }
 
-func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
+func BFSFindMultiplePaths(graph *loadrecipes.BiGraphAlchemy, targetElementName string, maxPaths int) (*pathfinding.MultipleResult, error) {
 	if _, targetExists := graph.AllElements[targetElementName]; !targetExists {
 		return nil, fmt.Errorf("elemen target '%s' tidak ditemukan (ProxyParallel)", targetElementName)
 	}
@@ -318,20 +320,20 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 	initialParentPairs, hasInitialRecipes := graph.ChildToParents[targetElementName]
 	if !hasInitialRecipes {
 		log.Printf("[BFS-PROXY-ORCH] Target '%s' tidak memiliki resep awal.", targetElementName)
-		return &pathfinding.MultipleResult{Results: []pathfinding.Result{}}, nil 
+		return &pathfinding.MultipleResult{Results: []pathfinding.Result{}}, nil
 	}
 
 	var wg sync.WaitGroup
 	// Setiap worker memanggil BFSFindXDifferentPathsBackward yang bisa menghasilkan hingga `maxPaths` jalur.
 	// Jadi, buffer channel bisa len(initialParentPairs) * maxPaths.
-	rawPathChannel := make(chan []pathfinding.PathStep, len(initialParentPairs)*maxPaths) 
+	rawPathChannel := make(chan []pathfinding.PathStep, len(initialParentPairs)*maxPaths)
 	doneSignal := make(chan struct{})
 
 	log.Printf("[BFS-PROXY-ORCH] Target: '%s'. Meluncurkan %d worker (Proxy ke BFS Sekuensial). MaxPaths Global: %d", targetElementName, len(initialParentPairs), maxPaths)
 
 	numWorkersLaunched := 0
-	
-	maxPathsForWorkerExecution := maxPaths 
+
+	maxPathsForWorkerExecution := maxPaths
 
 	for _, initialRecipe := range initialParentPairs {
 		if len(collectedPathResults) >= maxPaths {
@@ -340,26 +342,26 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 		numWorkersLaunched++
 		wg.Add(1)
 		go proxyBFSWorker(
-			graph, 
+			graph,
 			targetElementName,
 			initialRecipe,
-			maxPathsForWorkerExecution, 
+			maxPathsForWorkerExecution,
 			rawPathChannel,
 			&wg,
 			doneSignal,
 			&totalNodesExploredGlobal,
 		)
 	}
-	
+
 	if numWorkersLaunched == 0 && len(initialParentPairs) > 0 {
-        log.Printf("[BFS-PROXY-ORCH] Tidak ada worker yang diluncurkan untuk target '%s'.", targetElementName)
-    }
+		log.Printf("[BFS-PROXY-ORCH] Tidak ada worker yang diluncurkan untuk target '%s'.", targetElementName)
+	}
 
 	collectorWg := sync.WaitGroup{}
 	collectorWg.Add(1)
 	go func() {
 		defer collectorWg.Done()
-		wg.Wait() 
+		wg.Wait()
 		close(rawPathChannel)
 	}()
 
@@ -370,13 +372,13 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 			default:
 				close(doneSignal)
 			}
-			continue 
+			continue
 		}
 
 		sig := createPathSignature(pathFromWorker)
 		if !uniquePathSignaturesGlobal[sig] {
 			uniquePathSignaturesGlobal[sig] = true
-			collectedPathResults = append(collectedPathResults, pathfinding.Result{Path: pathFromWorker, NodesVisited: 0}) 
+			collectedPathResults = append(collectedPathResults, pathfinding.Result{Path: pathFromWorker, NodesVisited: 0})
 			if len(collectedPathResults) >= maxPaths {
 				select {
 				case <-doneSignal:
@@ -395,17 +397,16 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 	}
 
 	finalNodesExploredCount := int(atomic.LoadInt64(&totalNodesExploredGlobal))
-	
+
 	if len(collectedPathResults) == 0 && !graph.BaseElements[targetElementName] {
 		if finalNodesExploredCount == 0 && numWorkersLaunched > 0 {
 			// Ini berarti semua worker mengembalikan 0 NodesExplored, yang mungkin terjadi jika semua cabang buntu sangat awal.
-			// finalNodesExploredCount = 1 
+			// finalNodesExploredCount = 1
 		}
 		log.Printf("[BFS-PROXY-ORCH-INFO] Tidak ada jalur unik yang ditemukan untuk '%s'. Total node dieksplorasi (gabungan worker): %d", targetElementName, finalNodesExploredCount)
 	} else if len(collectedPathResults) > 0 {
 		log.Printf("[BFS-PROXY-ORCH-INFO] Selesai untuk target '%s'. Ditemukan %d jalur unik. Total node dieksplorasi (gabungan worker): %d", targetElementName, len(collectedPathResults), finalNodesExploredCount)
 	}
-
 
 	for i := range collectedPathResults {
 		collectedPathResults[i].NodesVisited = finalNodesExploredCount
@@ -414,7 +415,7 @@ func BFSFindXDifferentPathsBackward_ProxyParallel(graph *loadrecipes.BiGraphAlch
 	sort.SliceStable(collectedPathResults, func(i, j int) bool {
 		return len(collectedPathResults[i].Path) < len(collectedPathResults[j].Path)
 	})
-	
+
 	return &pathfinding.MultipleResult{
 		Results: collectedPathResults,
 	}, nil

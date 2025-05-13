@@ -17,9 +17,9 @@ type BFSRequest struct {
 }
 
 type BFSResponse struct {
-	Results *pathfinding.MultipleResult `json:"results"`
-	Error   string                      `json:"error,omitempty"`
-	ExecutionTime float64                  `json:"executionTimeMs"`
+	Results       *pathfinding.MultipleResult `json:"results"`
+	Error         string                      `json:"error,omitempty"`
+	ExecutionTime float64                     `json:"executionTimeMs"`
 }
 
 type DFSRequest struct {
@@ -28,14 +28,14 @@ type DFSRequest struct {
 }
 
 type DFSSingleResponse struct {
-	Results *pathfinding.Result `json:"results"`
-	ExecutionTime float64                  `json:"executionTimeMs"`
+	Results       *pathfinding.Result `json:"results"`
+	ExecutionTime float64             `json:"executionTimeMs"`
 }
 
 type DFSMultipleResponse struct {
-	Results      []pathfinding.Result `json:"results"`
-	NodesVisited int                  `json:"nodesVisited"`
-	ExecutionTime float64                  `json:"executionTimeMs"`
+	Results       []pathfinding.Result `json:"results"`
+	NodesVisited  int                  `json:"nodesVisited"`
+	ExecutionTime float64              `json:"executionTimeMs"`
 }
 
 // handling dfs single recipee
@@ -68,7 +68,7 @@ func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	result, err := dfs.DFSFindPathString(graph, req.TargetElementName)
-	
+
 	if err != nil {
 		respondWithError(w, "Failed to find paths: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -78,10 +78,11 @@ func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(DFSSingleResponse{
-		Results: result,
-		ExecutionTime: float64(executionTime), 
+		Results:       result,
+		ExecutionTime: float64(executionTime),
 	})
 }
+
 // handling dfs multi recipis
 func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -111,7 +112,7 @@ func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	result, nodesVisited, err := dfs.DFSFindMultiplePathsString(graph, req.TargetElementName, req.MaxPaths)
+	result, nodesVisited, err := dfs.DFSFindMultiplePaths(graph, req.TargetElementName, req.MaxPaths)
 	executionTime := time.Since(start).Seconds() * 1000
 	if err != nil {
 		respondWithError(w, "Failed to find paths: "+err.Error(), http.StatusInternalServerError)
@@ -120,8 +121,8 @@ func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(DFSMultipleResponse{
-		Results:      result.Results,
-		NodesVisited: nodesVisited,
+		Results:       result.Results,
+		NodesVisited:  nodesVisited,
 		ExecutionTime: float64(executionTime),
 	})
 }
@@ -155,7 +156,7 @@ func BFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	result, err := bfs.BFSFindXDifferentPathsBackward_ProxyParallel(graph, req.TargetElementName, req.MaxPaths)
+	result, err := bfs.BFSFindMultiplePaths(graph, req.TargetElementName, req.MaxPaths)
 	executionTime := time.Since(start).Seconds() * 1000
 
 	if err != nil {
@@ -165,8 +166,8 @@ func BFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(BFSResponse{
-		Results: result,
-		Error:   "",
+		Results:       result,
+		Error:         "",
 		ExecutionTime: float64(executionTime),
 	})
 }
