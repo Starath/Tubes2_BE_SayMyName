@@ -49,5 +49,5 @@ git clone https://github.com/rafifrs/Tubes2_FE_SayMyName.git
 | 1      | Membuat bonus video dan diunggah pada Youtube                            | ✅         |
 | 2      | Membuat bonus algoritma pencarian Bidirectional| ❌         |
 | 3      | Membuat bonus Live Update| ❌         |
-| 4      | Aplikasi di-containerize dengan Docker| ❌         |
+| 4      | Aplikasi di-containerize dengan Docker| ✅         |
 | 5      | Aplikasi di-deploy dan dapat diakses melalui internet| ❌         |
