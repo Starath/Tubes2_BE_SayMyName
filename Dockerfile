@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o serverapp ./server.go
+RUN go build -o serverapp ./main_server.go
 
 FROM alpine:latest
 
@@ -16,7 +16,7 @@ WORKDIR /root/
 
 COPY --from=builder /app/serverapp .
 
-COPY elements_filtered.json .
+COPY elements_with_images.json .
 
 EXPOSE 8080
 
