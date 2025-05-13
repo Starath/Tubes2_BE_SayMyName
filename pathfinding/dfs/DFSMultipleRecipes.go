@@ -37,7 +37,7 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 	if maxRecipes <= 0 {
 		return nil, 0, fmt.Errorf("parameter maxRecipes harus positif")
 	}
-	if graph.BaseElements[targetElementName] { // Jika target adalah elemen dasar
+	if graph.BaseElements[targetElementName] {
 		return &pathfinding.MultipleResult{Results: []pathfinding.Result{{Path: []pathfinding.PathStep{}, NodesVisited: 1}}}, 1, nil
 	}
 
@@ -62,12 +62,9 @@ func DFSFindMultiplePathsString(graph *loadrecipes.BiGraphAlchemy, targetElement
 	
 	resultsProcessingChan := make(chan workerResult, numWorkers)
 	
-	// Memoization bersama: menyimpan status apakah suatu elemen *secara umum* dapat dibuat.
 	sharedOverallCanBeMadeMemo := make(map[string]bool)
 	var sharedMemoMutex sync.Mutex
 	
-	var pathsFoundCounter int32 // Counter atomik untuk jumlah jalur unik yang sudah ditemukan
-	var totalNodesVisitedByWorkers int64 // Counter atomik untuk total node yang dikunjungi
 	var pathsFoundCounter int32
 	var totalNodesVisitedByWorkers int64
 
