@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1.24.0,
   "builds": [
     {
       "src": "main_server.go",
