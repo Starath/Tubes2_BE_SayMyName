@@ -1,6 +1,6 @@
 module github.com/Starath/Tubes2_BE_SayMyName
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3

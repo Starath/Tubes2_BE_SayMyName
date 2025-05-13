@@ -40,7 +40,7 @@ type DFSMultipleResponse struct {
 
 // handling dfs single recipee
 func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "https://tubes2-fe-say-my-name-yvmx-git-main-rafif-farras-projects.vercel.app")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -84,7 +84,7 @@ func DFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
 }
 // handling dfs multi recipis
 func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "https://tubes2-fe-say-my-name-yvmx-git-main-rafif-farras-projects.vercel.app")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -128,7 +128,7 @@ func DFSMultiplePathfindingHandler(w http.ResponseWriter, r *http.Request) {
 
 // bfs handler
 func BFSPathfindingHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "https://tubes2-fe-say-my-name-yvmx-git-main-rafif-farras-projects.vercel.app")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
