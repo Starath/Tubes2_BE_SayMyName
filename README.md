@@ -17,6 +17,20 @@
 
 </div>
 
+## Deskripsi Repository
+Web untuk mencari cara membuat elemen tertentu dalam permainan Little Alchemy 2. Pengguna dapat memilih elemen target, metode pencarian (BFS atau DFS), mode pencarian (_single recipe_ atau _multiple recipes_), dan jumlah _recipe_ yang ingin ditampilkan. Hasil pencarian akan ditampilkan dalam bentuk visualisasi _tree_ yang interaktif serta informasi mengenai waktu eksekusi dan jumlah _node_ yang dikunjungi.
+
+## Getting Started
+
+First, run the main_server.go
+```bash
+go run main_server.go
+```
+Then go to FE directory to run the web. You can clone it by doing this command
+```bash
+git clone https://github.com/rafifrs/Tubes2_FE_SayMyName.git
+```
+
 ### Fitur Wajib
 
 | **No** | **Fitur**         | **Status** |
