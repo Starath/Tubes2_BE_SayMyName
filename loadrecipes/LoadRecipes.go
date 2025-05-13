@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"sort" // Diperlukan untuk memastikan urutan child konsisten jika diperlukan
+	"sort"
 )
 
 type ElementInput struct {
@@ -13,12 +13,10 @@ type ElementInput struct {
 	Recipes [][]string `json:"recipes"`
 }
 
-// Contains pair of materials (for recipe)
 type PairMats struct {
 	Mat1, Mat2 string
 }
 
-// Make sorted PairMats(mat1 first alphabet lower than mat2)
 func ConstructPair(mat1, mat2 string) PairMats {
 	if mat1 < mat2 {
 		return PairMats{Mat1: mat1, Mat2: mat2}
@@ -26,7 +24,6 @@ func ConstructPair(mat1, mat2 string) PairMats {
 	return PairMats{Mat1: mat2, Mat2: mat1}
 }
 
-// Helper function to check if a slice contains a string
 func ContainsString(slice []string, str string) bool {
 	for _, item := range slice {
 		if item == str {
@@ -36,39 +33,34 @@ func ContainsString(slice []string, str string) bool {
 	return false
 }
 
-// Bidirectional Graph (Flexible for BFS and DFS)
 type BiGraphAlchemy struct {
 	ChildToParents    map[string][]PairMats
-	ParentPairToChild map[PairMats][]string // slice of string (ingredients can make more than 1 element(child))
+	ParentPairToChild map[PairMats][]string 
 	BaseElements      map[string]bool
 	AllElements       map[string]bool
 }
 
 func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
-	// Read the JSON file
 	file, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	// Get the byte codes
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
 
-	// Unmarshal the JSON data into a slice of ElementInput
 	var elements []ElementInput
 	err = json.Unmarshal(data, &elements)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a new BiGraphAlchemy instance
 	graphData := &BiGraphAlchemy{
 		ChildToParents:    make(map[string][]PairMats),
-		ParentPairToChild: make(map[PairMats][]string), // Diinisialisasi sebagai map ke slice string
+		ParentPairToChild: make(map[PairMats][]string), 
 		BaseElements: map[string]bool{
 			"Air":   true,
 			"Fire":  true,
@@ -78,12 +70,10 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 		AllElements: make(map[string]bool),
 	}
 
-	// Tambahkan elemen dasar ke AllElements juga
 	for baseElem := range graphData.BaseElements {
 		graphData.AllElements[baseElem] = true
 	}
 
-	// Iterate over the elements and populate the graph data
 	for _, element := range elements {
 		graphData.AllElements[element.Name] = true
 
@@ -104,15 +94,10 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 
 			pair := ConstructPair(parent1, parent2)
 
-			// Forward direction: Parents -> Children (plural)
-			// Append child ke slice yang sudah ada, atau buat slice baru jika belum ada.
-			// Pastikan tidak ada duplikasi child untuk pair yang sama.
 			if !ContainsString(graphData.ParentPairToChild[pair], element.Name) {
 				graphData.ParentPairToChild[pair] = append(graphData.ParentPairToChild[pair], element.Name)
 			}
 
-			// Backward direction: Child -> Parents
-			// Pastikan tidak ada duplikasi pair untuk child yang sama (umumnya tidak masalah karena resep di JSON biasanya unik per child)
 			alreadyExists := false
 			for _, existingPair := range validRecipesForChild {
 				if existingPair == pair {
@@ -132,7 +117,6 @@ func LoadBiGraph(filepath string) (*BiGraphAlchemy, error) {
 		}
 	}
 
-	// (Opsional) Urutkan slice of children di ParentPairToChild untuk konsistensi (berguna untuk testing)
 	for pair := range graphData.ParentPairToChild {
 		sort.Strings(graphData.ParentPairToChild[pair])
 	}
